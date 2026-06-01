@@ -1,0 +1,84 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 14px 36px rgba(42, 32, 28, 0.08);
+}
+
+.posterLink {
+  display: block;
+  background: var(--surface-soft);
+}
+
+.poster,
+.posterFallback {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+}
+
+.posterFallback {
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  color: var(--muted);
+  text-align: center;
+  background: linear-gradient(135deg, #efe8df, #f8f4f0);
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 14px;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 24px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--teal);
+}
+
+.card h3 {
+  margin: 10px 0 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.original,
+.year {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.original {
+  min-height: 38px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(2, auto);
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 16px;
+}

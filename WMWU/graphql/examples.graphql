@@ -1,0 +1,114 @@
+# Search
+query SearchMovies($query: String!) {
+  searchMovies(query: $query) {
+    id
+    externalId
+    titleRu
+    titleEn
+    originalTitle
+    year
+    rating
+    posterUrl
+    mediaType
+  }
+}
+
+# Movie details
+query MovieDetails($id: String!) {
+  movieDetails(id: $id) {
+    id
+    titleRu
+    titleEn
+    description
+    country
+    genres
+    duration
+    actors
+  }
+}
+
+# Collections
+query Collections {
+  collections {
+    id
+    title
+    description
+    tags
+    movieCount
+    movies {
+      id
+      titleRu
+      year
+      posterUrl
+    }
+  }
+}
+
+mutation CreateCollection($input: CreateCollectionInput!) {
+  createCollection(input: $input) {
+    id
+    title
+    description
+  }
+}
+
+mutation AddMovieToCollection($collectionId: ID!, $movieInput: MovieInput!) {
+  addMovieToCollection(collectionId: $collectionId, movieInput: $movieInput) {
+    id
+    title
+    movieCount
+  }
+}
+
+mutation RemoveMovieFromCollection($collectionId: ID!, $movieId: ID!) {
+  removeMovieFromCollection(collectionId: $collectionId, movieId: $movieId) {
+    id
+    movieCount
+  }
+}
+
+# Watchlist
+query Watchlist {
+  watchlist {
+    id
+    title
+    movieCount
+    movies {
+      id
+      titleRu
+      year
+      posterUrl
+    }
+  }
+}
+
+mutation AddMovieToWatchlist($movieInput: MovieInput!) {
+  addMovieToWatchlist(movieInput: $movieInput) {
+    id
+    movieCount
+  }
+}
+
+# Personal library
+query SavedMovies($status: WatchStatus) {
+  savedMovies(status: $status) {
+    id
+    status
+    personalRating
+    note
+    movie {
+      id
+      titleRu
+      year
+    }
+  }
+}
+
+mutation UpdateMovieProgress($movieId: ID!, $input: UpdateMovieProgressInput!) {
+  updateMovieProgress(movieId: $movieId, input: $input) {
+    id
+    status
+    personalRating
+    note
+  }
+}
