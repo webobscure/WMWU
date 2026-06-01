@@ -1,0 +1,141 @@
+.page {
+  padding: 48px 0 64px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: clamp(38px, 5vw, 64px);
+  line-height: 1;
+}
+
+.header p {
+  max-width: 680px;
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.55;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.createPanel,
+.collectionCard,
+.state {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-translucent);
+  box-shadow: 0 14px 36px rgba(42, 32, 28, 0.08);
+}
+
+.createPanel {
+  position: sticky;
+  top: 98px;
+  padding: 22px;
+}
+
+.createPanel h2 {
+  margin: 0 0 18px;
+  font-size: 24px;
+}
+
+.listPanel {
+  min-width: 0;
+}
+
+.collectionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.collectionCard {
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+  overflow: hidden;
+}
+
+.cardLink {
+  display: block;
+  flex: 1;
+  padding: 20px;
+}
+
+.cardLink span {
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.cardLink h2 {
+  margin: 14px 0 0;
+  font-size: 28px;
+  line-height: 1.08;
+}
+
+.cardLink p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.tags small {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 9px;
+  border-radius: var(--radius);
+  background: var(--teal-soft);
+  color: var(--teal-text);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.cardActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 8px;
+  padding: 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 86px;
+  margin-bottom: 16px;
+  padding: 18px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .createPanel {
+    position: static;
+  }
+}

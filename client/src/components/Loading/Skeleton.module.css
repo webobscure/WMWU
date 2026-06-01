@@ -1,0 +1,52 @@
+.card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.poster,
+.lineWide,
+.line,
+.actions div {
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, #eee7df 25%, #f7f1eb 40%, #eee7df 65%);
+  background-size: 240% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.poster {
+  aspect-ratio: 2 / 3;
+}
+
+.lineWide {
+  height: 18px;
+  margin-top: 14px;
+}
+
+.line {
+  width: 64%;
+  height: 14px;
+  margin-top: 10px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 42px;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.actions div {
+  height: 42px;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}

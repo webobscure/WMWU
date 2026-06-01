@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  name        String
+  email       String       @unique
+  createdAt   DateTime     @default(now())
+  collections Collection[]
+  userMovies  UserMovie[]
+}
+
+model Movie {
+  id               String            @id @default(cuid())
+  externalId       String            @unique
+  titleRu          String?
+  titleEn          String?
+  originalTitle    String?
+  year             Int?
+  posterUrl        String?
+  rating           Float?
+  description      String?
+  mediaType        String?
+  country          String?
+  genres           Json?
+  duration         Int?
+  actors           Json?
+  createdAt        DateTime          @default(now())
+  collectionMovies CollectionMovie[]
+  userMovies        UserMovie[]
+}
+
+enum WatchStatus {
+  WANT_TO_WATCH
+  WATCHING
+  WATCHED
+  DROPPED
+  REWATCH
+}
+
+model Collection {
+  id               String            @id @default(cuid())
+  title            String
+  description      String?
+  tags             String[]          @default([])
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  collectionMovies CollectionMovie[]
+
+  @@index([userId])
+}
+
+model CollectionMovie {
+  id           String     @id @default(cuid())
+  collectionId String
+  movieId      String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  movie        Movie      @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([collectionId, movieId])
+  @@index([movieId])
+}
+
+model UserMovie {
+  id             String      @id @default(cuid())
+  userId         String
+  movieId        String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie          Movie       @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  status         WatchStatus @default(WANT_TO_WATCH)
+  personalRating Int?
+  note           String?
+  watchedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([userId, movieId])
+  @@index([movieId])
+  @@index([status])
+}

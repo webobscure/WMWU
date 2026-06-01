@@ -1,0 +1,116 @@
+.page {
+  padding: 34px 0 64px;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 22px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.header {
+  margin-bottom: 24px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--inverse-surface);
+  color: var(--inverse-text);
+  box-shadow: var(--shadow);
+}
+
+.header span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--teal-text);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.header h1 {
+  margin: 12px 0 0;
+  font-size: clamp(38px, 5vw, 66px);
+  line-height: 1;
+}
+
+.header p {
+  max-width: 720px;
+  margin: 14px 0 0;
+  color: var(--inverse-muted);
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.movieGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 16px;
+}
+
+.movieWrap {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.order {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(29, 27, 28, 0.88);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.removeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.state,
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 38px 20px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface-translucent);
+  text-align: center;
+}
+
+.state h2,
+.empty h2 {
+  margin: 0;
+}
+
+.state p,
+.empty p {
+  max-width: 560px;
+  margin: 0;
+  color: var(--muted);
+}
+
+.empty svg {
+  color: var(--accent);
+}
