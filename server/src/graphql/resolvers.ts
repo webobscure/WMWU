@@ -355,6 +355,24 @@ export const resolvers = {
       });
 
       return progress ? mapUserMovie(progress) : null;
+    },
+    movieProgressByExternalId: async (_: unknown, { externalId }: { externalId: string }, context: Context) => {
+      const userId = await context.getUserId();
+      await backfillUserMoviesFromCollections(userId);
+      const progress = await prisma.userMovie.findFirst({
+        where: {
+          userId,
+          movie: {
+            externalId
+          }
+        },
+        include: {
+          user: true,
+          movie: true
+        }
+      });
+
+      return progress ? mapUserMovie(progress) : null;
     }
   },
   Mutation: {
@@ -455,6 +473,12 @@ export const resolvers = {
 
       const updatedWatchlist = await getOrCreateWatchlist(userId);
       return mapCollection(updatedWatchlist);
+    },
+    addMovieToLibrary: async (_: unknown, { movieInput }: { movieInput: MovieInput }, context: Context) => {
+      const userId = await context.getUserId();
+      const movie = await upsertMovieFromInput(movieInput);
+      const progress = await ensureUserMovie(userId, movie.id);
+      return mapUserMovie(progress);
     },
     updateMovieProgress: async (
       _: unknown,

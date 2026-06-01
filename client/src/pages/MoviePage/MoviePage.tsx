@@ -1,14 +1,26 @@
 import { useMutation, useQuery } from "@apollo/client";
-import { ArrowLeft, BookmarkPlus, CheckCircle2, Clock, Globe2, Star, Timer, Users } from "lucide-react";
+import { ArrowLeft, BookOpen, BookmarkPlus, CheckCircle2, Clock, Globe2, Star, Timer, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AddToCollectionModal } from "../../components/AddToCollectionModal/AddToCollectionModal";
-import { getMediaTypeLabel, getMovieTitle, toMovieInput, type MovieDetails } from "../../entities/movie/types";
-import { ADD_MOVIE_TO_WATCHLIST, MOVIE_DETAILS, SAVED_MOVIES, WATCHLIST } from "../../shared/graphql/documents";
+import { MovieProgressEditor } from "../../components/MovieProgressEditor/MovieProgressEditor";
+import { getMediaTypeLabel, getMovieTitle, toMovieInput, type MovieDetails, type UserMovie } from "../../entities/movie/types";
+import {
+  ADD_MOVIE_TO_LIBRARY,
+  ADD_MOVIE_TO_WATCHLIST,
+  MOVIE_DETAILS,
+  MOVIE_PROGRESS_BY_EXTERNAL_ID,
+  SAVED_MOVIES,
+  WATCHLIST
+} from "../../shared/graphql/documents";
 import styles from "./MoviePage.module.css";
 
 type MovieDetailsData = {
   movieDetails: MovieDetails | null;
+};
+
+type MovieProgressData = {
+  movieProgressByExternalId: UserMovie | null;
 };
 
 export function MoviePage() {
@@ -23,8 +35,16 @@ export function MoviePage() {
   const [addMovieToWatchlist, watchlistState] = useMutation(ADD_MOVIE_TO_WATCHLIST, {
     refetchQueries: [WATCHLIST, SAVED_MOVIES]
   });
+  const [addMovieToLibrary, libraryState] = useMutation(ADD_MOVIE_TO_LIBRARY, {
+    refetchQueries: [SAVED_MOVIES]
+  });
   const movie = data?.movieDetails ?? null;
   const movieInput = useMemo(() => (movie ? toMovieInput(movie) : null), [movie]);
+  const { data: progressData, refetch: refetchProgress } = useQuery<MovieProgressData>(MOVIE_PROGRESS_BY_EXTERNAL_ID, {
+    variables: { externalId: movie?.externalId ?? "" },
+    skip: !movie?.externalId
+  });
+  const progress = progressData?.movieProgressByExternalId ?? null;
 
   if (loading) {
     return (
@@ -76,6 +96,20 @@ export function MoviePage() {
       }
     });
     setWatchlistMessage("Добавлено в список");
+  }
+
+  async function handleLibrary() {
+    if (!movieInput) {
+      return;
+    }
+
+    await addMovieToLibrary({
+      variables: {
+        movieInput
+      }
+    });
+    await refetchProgress();
+    setWatchlistMessage("Добавлено в библиотеку");
   }
 
   return (
@@ -155,6 +189,15 @@ export function MoviePage() {
                 <button
                   className="buttonSecondary"
                   type="button"
+                  disabled={libraryState.loading}
+                  onClick={handleLibrary}
+                >
+                  <BookOpen size={18} aria-hidden />
+                  В библиотеку
+                </button>
+                <button
+                  className="buttonSecondary"
+                  type="button"
                   disabled={watchlistState.loading}
                   onClick={handleWatchlist}
                 >
@@ -162,6 +205,13 @@ export function MoviePage() {
                   Хочу посмотреть
                 </button>
               </div>
+
+              {progress ? (
+                <div className={styles.progressBlock}>
+                  <h2>Мой рейтинг и заметка</h2>
+                  <MovieProgressEditor entry={progress} />
+                </div>
+              ) : null}
             </article>
           </div>
         </div>

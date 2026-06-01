@@ -129,6 +129,7 @@ export const typeDefs = `#graphql
     watchlist: Collection!
     savedMovies(status: WatchStatus): [UserMovie!]!
     movieProgress(movieId: ID!): UserMovie
+    movieProgressByExternalId(externalId: String!): UserMovie
   }
 
   type Mutation {
@@ -139,6 +140,7 @@ export const typeDefs = `#graphql
     removeMovieFromCollection(collectionId: ID!, movieId: ID!): Collection!
     addMovieToWatchlist(movieInput: MovieInput!): Collection!
     removeMovieFromWatchlist(movieId: ID!): Collection!
+    addMovieToLibrary(movieInput: MovieInput!): UserMovie!
     updateMovieProgress(movieId: ID!, input: UpdateMovieProgressInput!): UserMovie!
   }
 `;

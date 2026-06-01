@@ -135,6 +135,15 @@ export const MOVIE_PROGRESS = gql`
   }
 `;
 
+export const MOVIE_PROGRESS_BY_EXTERNAL_ID = gql`
+  ${USER_MOVIE_FIELDS}
+  query MovieProgressByExternalId($externalId: String!) {
+    movieProgressByExternalId(externalId: $externalId) {
+      ...UserMovieFields
+    }
+  }
+`;
+
 export const CREATE_COLLECTION = gql`
   ${COLLECTION_FIELDS}
   mutation CreateCollection($input: CreateCollectionInput!) {
@@ -191,6 +200,15 @@ export const REMOVE_MOVIE_FROM_WATCHLIST = gql`
   mutation RemoveMovieFromWatchlist($movieId: ID!) {
     removeMovieFromWatchlist(movieId: $movieId) {
       ...CollectionFields
+    }
+  }
+`;
+
+export const ADD_MOVIE_TO_LIBRARY = gql`
+  ${USER_MOVIE_FIELDS}
+  mutation AddMovieToLibrary($movieInput: MovieInput!) {
+    addMovieToLibrary(movieInput: $movieInput) {
+      ...UserMovieFields
     }
   }
 `;

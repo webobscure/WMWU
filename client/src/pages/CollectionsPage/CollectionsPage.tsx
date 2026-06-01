@@ -1,4 +1,4 @@
-import { AlertCircle, Film, Pencil, Trash2 } from "lucide-react";
+import { AlertCircle, ExternalLink, Film, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CollectionForm } from "../../components/CollectionForm/CollectionForm";
 import { useCollectionMutations, useCollections } from "../../features/collections/useCollections";
@@ -60,9 +60,13 @@ export function CollectionsPage() {
                     ) : null}
                   </Link>
                   <div className={styles.cardActions}>
-                    <Link className="buttonSecondary" to={`/collections/${collection.id}`}>
-                      <Pencil size={17} aria-hidden />
-                      Открыть
+                    <Link
+                      className="iconButton"
+                      to={`/collections/${collection.id}`}
+                      aria-label={`Открыть коллекцию ${collection.title}`}
+                      title="Открыть"
+                    >
+                      <ExternalLink size={17} aria-hidden />
                     </Link>
                     <button
                       className="iconButton"

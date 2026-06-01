@@ -77,7 +77,8 @@
 
 .actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(2, auto);
+  grid-template-columns: repeat(4, 42px);
+  justify-content: start;
   gap: 8px;
   margin-top: auto;
   padding-top: 16px;
