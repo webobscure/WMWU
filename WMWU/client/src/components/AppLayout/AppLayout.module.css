@@ -98,3 +98,150 @@
     flex: 0 0 auto;
   }
 }
+/* LOGO */
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  line-height: 1;
+}
+
+.logoMark {
+  position: relative;
+  display: inline-flex;
+  width: 26px;
+  height: 20px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #b91c46;
+  box-shadow: 0 8px 18px rgba(185, 28, 70, 0.2);
+}
+
+.logoMark::before,
+.logoMark::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  width: 3px;
+  height: 6px;
+  border-radius: 999px;
+  background: #b91c46;
+}
+
+.logoMark::before {
+  left: 7px;
+}
+
+.logoMark::after {
+  right: 7px;
+}
+
+/* Бегущий блик по иконке */
+.logoMark::after {
+  animation: none;
+}
+
+.logoMark::before {
+  box-shadow: 12px 0 0 #b91c46;
+}
+
+.logoMark {
+  isolation: isolate;
+}
+
+.logoMark .logoPlay::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  z-index: -1;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(255, 255, 255, 0.45) 48%,
+    transparent 62%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  animation: wmwuShine 2.4s ease-in-out infinite;
+}
+
+.logoPlay {
+  position: relative;
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid #ffffff;
+}
+
+.logoText {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.055em;
+  color: #171717;
+}
+
+.logoPulse {
+  position: relative;
+  width: 5px;
+  height: 5px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: #b91c46;
+}
+
+.logoPulse::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
+  border: 1px solid rgba(185, 28, 70, 0.55);
+  animation: wmwuPulse 1.8s ease-out infinite;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+
+@keyframes wmwuShine {
+  0% {
+    transform: translateX(-130%);
+  }
+
+  45%,
+  100% {
+    transform: translateX(130%);
+  }
+}
+
+@keyframes wmwuPulse {
+  0% {
+    transform: scale(0.65);
+    opacity: 0.8;
+  }
+
+  70%,
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logoMark .logoPlay::after,
+  .logoPulse::after {
+    animation: none;
+  }
+}

@@ -89,6 +89,26 @@ mutation AddMovieToWatchlist($movieInput: MovieInput!) {
   }
 }
 
+mutation AddMovieToLibrary($movieInput: MovieInput!) {
+  addMovieToLibrary(movieInput: $movieInput) {
+    id
+    status
+    movie {
+      id
+      titleRu
+    }
+  }
+}
+
+query MovieProgressByExternalId($externalId: String!) {
+  movieProgressByExternalId(externalId: $externalId) {
+    id
+    status
+    personalRating
+    note
+  }
+}
+
 # Personal library
 query SavedMovies($status: WatchStatus) {
   savedMovies(status: $status) {

@@ -8,7 +8,12 @@ import { MovieCardSkeletons } from "../../components/Loading/Skeleton";
 import type { MovieSearchResult } from "../../entities/movie/types";
 import { toMovieInput } from "../../entities/movie/types";
 import { useMovieSearch } from "../../features/movieSearch/useMovieSearch";
-import { ADD_MOVIE_TO_WATCHLIST, SAVED_MOVIES, WATCHLIST } from "../../shared/graphql/documents";
+import {
+  ADD_MOVIE_TO_LIBRARY,
+  ADD_MOVIE_TO_WATCHLIST,
+  SAVED_MOVIES,
+  WATCHLIST
+} from "../../shared/graphql/documents";
 import styles from "./HomePage.module.css";
 
 const recommendedCollections = [
@@ -28,6 +33,9 @@ export function HomePage() {
   const [searchMovies, { data, loading, error, called }] = useMovieSearch();
   const [addMovieToWatchlist] = useMutation(ADD_MOVIE_TO_WATCHLIST, {
     refetchQueries: [WATCHLIST, SAVED_MOVIES]
+  });
+  const [addMovieToLibrary] = useMutation(ADD_MOVIE_TO_LIBRARY, {
+    refetchQueries: [SAVED_MOVIES]
   });
   const movies = data?.searchMovies ?? [];
 
@@ -58,6 +66,15 @@ export function HomePage() {
       }
     });
     setWatchlistMessage(`Добавлено: ${movie.titleRu || movie.titleEn || movie.originalTitle || "фильм"}`);
+  }
+
+  async function handleLibrary(movie: MovieSearchResult) {
+    await addMovieToLibrary({
+      variables: {
+        movieInput: toMovieInput(movie)
+      }
+    });
+    setWatchlistMessage(`В библиотеке: ${movie.titleRu || movie.titleEn || movie.originalTitle || "фильм"}`);
   }
 
   return (
@@ -156,6 +173,7 @@ export function HomePage() {
                   key={movie.id}
                   movie={movie}
                   onAdd={setSelectedMovie}
+                  onLibrary={handleLibrary}
                   onWatchlist={handleWatchlist}
                 />
               ))
