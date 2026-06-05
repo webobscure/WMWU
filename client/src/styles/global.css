@@ -11,7 +11,7 @@
   --input-bg: #ffffff;
   --text: #1d1b1c;
   --muted: #706a68;
-  --inverse-surface: #1d1b1c;
+  --inverse-surface: rgba(255, 255, 255, 0.78);
   --inverse-text: #ffffff;
   --inverse-muted: #e8dfd8;
   --border: #ded8d1;

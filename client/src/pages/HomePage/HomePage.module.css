@@ -64,6 +64,8 @@
   outline: 0;
   color: var(--text);
   font-size: 16px;
+  background: var(--input-bg);
+
 }
 
 .inlineError {
@@ -94,7 +96,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #f4d5dc;
+  color: var(--text);
   font-size: 14px;
   font-weight: 850;
 }
@@ -107,10 +109,10 @@
 .collectionChips button {
   min-height: 46px;
   padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--surface-translucent);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  color: var(--text);
   font-size: 14px;
   font-weight: 800;
   text-align: left;

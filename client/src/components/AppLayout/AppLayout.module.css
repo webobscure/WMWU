@@ -168,6 +168,7 @@
   );
   transform: translateX(-120%);
   animation: wmwuShine 2.4s ease-in-out infinite;
+  
 }
 
 .logoPlay {
@@ -187,7 +188,7 @@
   font-size: 18px;
   font-weight: 900;
   letter-spacing: -0.055em;
-  color: #171717;
+  color: var(--text);
 }
 
 .logoPulse {
