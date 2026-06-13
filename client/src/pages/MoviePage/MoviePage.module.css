@@ -67,7 +67,7 @@
 
 .content h1 {
   margin: 12px 0 0;
-  font-size: clamp(38px, 5vw, 68px);
+  font-size: 60px;
   line-height: 0.98;
 }
 
@@ -167,6 +167,23 @@
   font-size: 20px;
 }
 
+.related {
+  display: grid;
+  gap: 30px;
+  margin-top: 34px;
+}
+
+.relatedGroup h2 {
+  margin: 0 0 14px;
+  font-size: 28px;
+}
+
+.relatedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 16px;
+}
+
 .toast {
   position: fixed;
   right: 22px;
@@ -216,5 +233,10 @@
 
   .posterPanel {
     max-width: 340px;
+  }
+
+  .content h1 {
+    font-size: 38px;
+    line-height: 1.02;
   }
 }

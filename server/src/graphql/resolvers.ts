@@ -1,16 +1,34 @@
 import { Prisma, WatchStatus, type Collection, type Movie, type User, type UserMovie } from "@prisma/client";
 import { GraphQLError } from "graphql";
+import {
+  createSession,
+  deleteSessionToken,
+  hashPassword,
+  normalizeEmail,
+  type SessionUser,
+  validatePassword,
+  verifyPassword
+} from "../auth.js";
 import { config } from "../config.js";
 import { prisma } from "../db/prisma.js";
-import { movieApiService } from "../services/movieApi.js";
+import {
+  movieApiService,
+  type MovieFiltersInput,
+  type MovieSearchResult,
+  type MovieSortInput
+} from "../services/movieApi.js";
 
 type Context = {
+  sessionToken: string | null;
+  getCurrentUser: () => Promise<SessionUser | null>;
   getUserId: () => Promise<string>;
+  setSessionCookie: (token: string, expiresAt: Date) => void;
+  clearSessionCookie: () => void;
 };
 
 type CollectionWithMovies = Collection & {
   user: User;
-  collectionMovies: { movie: Movie }[];
+  collectionMovies: { createdAt: Date; movie: Movie }[];
 };
 
 type MovieInput = {
@@ -64,12 +82,17 @@ function mapMovie(movie: Movie) {
 function mapUser(user: User) {
   return {
     ...user,
-    createdAt: dateToString(user.createdAt)
+    createdAt: dateToString(user.createdAt),
+    updatedAt: dateToString(user.updatedAt)
   };
 }
 
-function mapCollection(collection: CollectionWithMovies) {
-  const movies = collection.collectionMovies.map(({ movie }) => mapMovie(movie));
+function mapCollection(collection: CollectionWithMovies, filters?: MovieFiltersInput | null, sort?: MovieSortInput | null) {
+  const movies = filterAndSortMovieEntries(
+    collection.collectionMovies.map(({ createdAt, movie }) => ({ addedAt: createdAt, movie: mapMovie(movie) })),
+    filters,
+    sort
+  ).map(({ movie }) => movie);
 
   return {
     ...collection,
@@ -90,6 +113,119 @@ function mapUserMovie(userMovie: UserMovieWithRelations) {
     createdAt: dateToString(userMovie.createdAt),
     updatedAt: dateToString(userMovie.updatedAt)
   };
+}
+
+type MappedMovie = ReturnType<typeof mapMovie>;
+
+type MovieEntry = {
+  addedAt: Date;
+  movie: MappedMovie;
+};
+
+function normalizeText(value?: string | null) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function includesText(value: string | null | undefined, query: string) {
+  return normalizeText(value).includes(normalizeText(query));
+}
+
+function getMovieTitle(movie: Pick<MappedMovie, "titleRu" | "titleEn" | "originalTitle">) {
+  return movie.titleRu || movie.titleEn || movie.originalTitle || "";
+}
+
+function matchesMovieFilters(movie: MappedMovie, filters?: MovieFiltersInput | null) {
+  if (!filters) {
+    return true;
+  }
+
+  if (filters.yearFrom !== undefined && filters.yearFrom !== null && (movie.year ?? 0) < filters.yearFrom) {
+    return false;
+  }
+
+  if (filters.yearTo !== undefined && filters.yearTo !== null && (movie.year ?? 9999) > filters.yearTo) {
+    return false;
+  }
+
+  if (filters.mediaType && movie.mediaType !== filters.mediaType) {
+    return false;
+  }
+
+  if (filters.ratingFrom !== undefined && filters.ratingFrom !== null && (movie.rating ?? 0) < filters.ratingFrom) {
+    return false;
+  }
+
+  const genreFilter = filters.genre;
+  if (genreFilter && !movie.genres.some((genre) => includesText(genre, genreFilter))) {
+    return false;
+  }
+
+  const countryFilter = filters.country;
+  if (countryFilter && !includesText(movie.country, countryFilter)) {
+    return false;
+  }
+
+  return true;
+}
+
+function filterAndSortMovieEntries(entries: MovieEntry[], filters?: MovieFiltersInput | null, sort?: MovieSortInput | null) {
+  const filtered = entries.filter(({ movie }) => matchesMovieFilters(movie, filters));
+  const sortInput = sort ?? { field: "ADDED_AT", direction: "DESC" as const };
+  const direction = sortInput.direction === "ASC" ? 1 : -1;
+
+  return [...filtered].sort((left, right) => {
+    if (sortInput.field === "TITLE") {
+      return getMovieTitle(left.movie).localeCompare(getMovieTitle(right.movie), "ru") * direction;
+    }
+
+    if (sortInput.field === "YEAR") {
+      return ((left.movie.year ?? 0) - (right.movie.year ?? 0)) * direction;
+    }
+
+    if (sortInput.field === "RATING") {
+      return ((left.movie.rating ?? 0) - (right.movie.rating ?? 0)) * direction;
+    }
+
+    return (left.addedAt.getTime() - right.addedAt.getTime()) * direction;
+  });
+}
+
+function mapSmartCollection(id: string, title: string, description: string, entries: MovieEntry[]) {
+  const movies = entries.map(({ movie }) => movie);
+
+  return {
+    id,
+    title,
+    description,
+    movies,
+    movieCount: movies.length
+  };
+}
+
+function getTasteWeight(entry: Pick<UserMovie, "personalRating" | "status">) {
+  if (entry.personalRating !== null && entry.personalRating !== undefined) {
+    return entry.personalRating >= 7 ? entry.personalRating / 10 : 0;
+  }
+
+  if (entry.status === WatchStatus.REWATCH) {
+    return 0.78;
+  }
+
+  if (entry.status === WatchStatus.WATCHED) {
+    return 0.62;
+  }
+
+  return 0;
+}
+
+function getRecommendationReason(sourceUsers: Set<string>) {
+  const users = Array.from(sourceUsers);
+
+  if (users.length === 1) {
+    return `${users[0]} оценил(а) фильм близко к вашему вкусу.`;
+  }
+
+  return `Понравилось ${users.length} пользователям со схожим вкусом.`;
 }
 
 const collectionInclude = {
@@ -281,21 +417,247 @@ function normalizeProgressInput(input: UpdateMovieProgressInput) {
   };
 }
 
-export async function getMockUser() {
-  return prisma.user.upsert({
-    where: { email: config.mockUserEmail },
-    update: {},
-    create: {
-      email: config.mockUserEmail,
-      name: "Demo User"
+function requireName(name: string) {
+  const normalized = name.trim();
+
+  if (!normalized) {
+    throw new GraphQLError("Имя обязательно.", {
+      extensions: { code: "BAD_USER_INPUT" }
+    });
+  }
+
+  return normalized;
+}
+
+function requireEmail(email: string) {
+  const normalized = normalizeEmail(email);
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    throw new GraphQLError("Введите корректный email.", {
+      extensions: { code: "BAD_USER_INPUT" }
+    });
+  }
+
+  return normalized;
+}
+
+async function startUserSession(userId: string, context: Context) {
+  const session = await createSession(userId);
+  context.setSessionCookie(session.token, session.expiresAt);
+}
+
+async function getSavedMovieEntries(userId: string) {
+  await backfillUserMoviesFromCollections(userId);
+  const userMovies = await prisma.userMovie.findMany({
+    where: { userId },
+    include: {
+      user: true,
+      movie: true
     }
   });
+
+  return userMovies.map((entry) => ({
+    addedAt: entry.updatedAt,
+    movie: mapMovie(entry.movie),
+    userMovie: entry
+  }));
+}
+
+async function claimMockUserData(userId: string) {
+  const mockUser = await prisma.user.findUnique({
+    where: { email: config.mockUserEmail }
+  });
+
+  if (!mockUser || mockUser.id === userId) {
+    return false;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const [mockWatchlist, targetWatchlist] = await Promise.all([
+      tx.collection.findFirst({
+        where: { userId: mockUser.id, title: WATCHLIST_TITLE },
+        include: { collectionMovies: true }
+      }),
+      tx.collection.findFirst({
+        where: { userId, title: WATCHLIST_TITLE },
+        include: { collectionMovies: true }
+      })
+    ]);
+
+    if (mockWatchlist && targetWatchlist) {
+      for (const item of mockWatchlist.collectionMovies) {
+        await tx.collectionMovie.upsert({
+          where: {
+            collectionId_movieId: {
+              collectionId: targetWatchlist.id,
+              movieId: item.movieId
+            }
+          },
+          update: {},
+          create: {
+            collectionId: targetWatchlist.id,
+            movieId: item.movieId,
+            createdAt: item.createdAt
+          }
+        });
+      }
+
+      await tx.collection.delete({ where: { id: mockWatchlist.id } });
+    }
+
+    await tx.collection.updateMany({
+      where: { userId: mockUser.id },
+      data: { userId }
+    });
+
+    const mockUserMovies = await tx.userMovie.findMany({
+      where: { userId: mockUser.id }
+    });
+
+    for (const entry of mockUserMovies) {
+      await tx.userMovie.upsert({
+        where: {
+          userId_movieId: {
+            userId,
+            movieId: entry.movieId
+          }
+        },
+        update: {
+          status: entry.status,
+          personalRating: entry.personalRating,
+          note: entry.note,
+          watchedAt: entry.watchedAt
+        },
+        create: {
+          userId,
+          movieId: entry.movieId,
+          status: entry.status,
+          personalRating: entry.personalRating,
+          note: entry.note,
+          watchedAt: entry.watchedAt,
+          createdAt: entry.createdAt
+        }
+      });
+    }
+
+    await tx.userMovie.deleteMany({
+      where: { userId: mockUser.id }
+    });
+  });
+
+  return true;
+}
+
+async function getTasteRecommendations(userId: string) {
+  await backfillUserMoviesFromCollections(userId);
+
+  const currentEntries = await prisma.userMovie.findMany({
+    where: { userId },
+    include: { movie: true }
+  });
+  const currentMovieIds = new Set(currentEntries.map((entry) => entry.movieId));
+  const currentLikedEntries = currentEntries
+    .map((entry) => ({ entry, weight: getTasteWeight(entry) }))
+    .filter(({ weight }) => weight > 0);
+
+  if (currentLikedEntries.length === 0) {
+    return [];
+  }
+
+  const currentLikedIds = new Set(currentLikedEntries.map(({ entry }) => entry.movieId));
+  const currentWeightByMovieId = new Map(currentLikedEntries.map(({ entry, weight }) => [entry.movieId, weight]));
+  const overlappingEntries = await prisma.userMovie.findMany({
+    where: {
+      userId: { not: userId },
+      movieId: { in: Array.from(currentLikedIds) }
+    },
+    include: { user: true }
+  });
+  const similarityByUserId = new Map<string, { score: number; userName: string }>();
+
+  for (const entry of overlappingEntries) {
+    const otherWeight = getTasteWeight(entry);
+
+    if (otherWeight <= 0) {
+      continue;
+    }
+
+    const currentWeight = currentWeightByMovieId.get(entry.movieId) ?? 0;
+    const existing = similarityByUserId.get(entry.userId) ?? { score: 0, userName: entry.user.name };
+    existing.score += currentWeight * otherWeight;
+    similarityByUserId.set(entry.userId, existing);
+  }
+
+  const similarUserIds = Array.from(similarityByUserId.entries())
+    .filter(([, similarity]) => similarity.score > 0)
+    .sort(([, left], [, right]) => right.score - left.score)
+    .slice(0, 12)
+    .map(([similarUserId]) => similarUserId);
+
+  if (similarUserIds.length === 0) {
+    return [];
+  }
+
+  const candidateEntries = await prisma.userMovie.findMany({
+    where: {
+      userId: { in: similarUserIds },
+      movieId: { notIn: Array.from(currentMovieIds) }
+    },
+    include: {
+      user: true,
+      movie: true
+    }
+  });
+  const candidateByMovieId = new Map<
+    string,
+    {
+      movie: Movie;
+      score: number;
+      sourceUsers: Set<string>;
+    }
+  >();
+
+  for (const entry of candidateEntries) {
+    const tasteWeight = getTasteWeight(entry);
+
+    if (tasteWeight <= 0) {
+      continue;
+    }
+
+    const similarity = similarityByUserId.get(entry.userId)?.score ?? 0;
+    const existing = candidateByMovieId.get(entry.movieId) ?? {
+      movie: entry.movie,
+      score: 0,
+      sourceUsers: new Set<string>()
+    };
+    existing.score += similarity * tasteWeight;
+    existing.sourceUsers.add(entry.user.name);
+    candidateByMovieId.set(entry.movieId, existing);
+  }
+
+  return Array.from(candidateByMovieId.values())
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 12)
+    .map((candidate) => ({
+      movie: mapMovie(candidate.movie),
+      score: Number(candidate.score.toFixed(3)),
+      reason: getRecommendationReason(candidate.sourceUsers),
+      sourceUsers: Array.from(candidate.sourceUsers).slice(0, 3)
+    }));
 }
 
 export const resolvers = {
   Query: {
-    searchMovies: async (_: unknown, { query }: { query: string }) => movieApiService.searchMovies(query),
+    me: async (_: unknown, __: unknown, context: Context) => {
+      const user = await context.getCurrentUser();
+      return user ? mapUser(user as User) : null;
+    },
+    searchMovies: async (
+      _: unknown,
+      { query, filters, sort }: { query: string; filters?: MovieFiltersInput | null; sort?: MovieSortInput | null }
+    ) => movieApiService.searchMovies(query, filters, sort),
     movieDetails: async (_: unknown, { id }: { id: string }) => movieApiService.getMovieDetails(id),
+    relatedMovies: async (_: unknown, { id }: { id: string }) => movieApiService.getRelatedMovieGroups(id),
     collections: async (_: unknown, __: unknown, context: Context) => {
       const userId = await context.getUserId();
       const collections = await prisma.collection.findMany({
@@ -307,23 +669,39 @@ export const resolvers = {
         include: collectionInclude
       });
 
-      return collections.map(mapCollection);
+      return collections.map((collection) => mapCollection(collection));
     },
-    collection: async (_: unknown, { id }: { id: string }, context: Context) => {
+    collection: async (
+      _: unknown,
+      { id, filters, sort }: { id: string; filters?: MovieFiltersInput | null; sort?: MovieSortInput | null },
+      context: Context
+    ) => {
       const userId = await context.getUserId();
       const collection = await prisma.collection.findFirst({
         where: { id, userId },
         include: collectionInclude
       });
 
-      return collection ? mapCollection(collection) : null;
+      return collection ? mapCollection(collection, filters, sort) : null;
     },
-    watchlist: async (_: unknown, __: unknown, context: Context) => {
+    watchlist: async (
+      _: unknown,
+      { filters, sort }: { filters?: MovieFiltersInput | null; sort?: MovieSortInput | null },
+      context: Context
+    ) => {
       const userId = await context.getUserId();
       const collection = await getOrCreateWatchlist(userId);
-      return mapCollection(collection);
+      return mapCollection(collection, filters, sort);
     },
-    savedMovies: async (_: unknown, { status }: { status?: WatchStatus | null }, context: Context) => {
+    savedMovies: async (
+      _: unknown,
+      {
+        status,
+        filters,
+        sort
+      }: { status?: WatchStatus | null; filters?: MovieFiltersInput | null; sort?: MovieSortInput | null },
+      context: Context
+    ) => {
       const userId = await context.getUserId();
       await backfillUserMoviesFromCollections(userId);
       const savedMovies = await prisma.userMovie.findMany({
@@ -337,8 +715,74 @@ export const resolvers = {
           movie: true
         }
       });
+      const sortedMovieIds = filterAndSortMovieEntries(
+        savedMovies.map((entry) => ({ addedAt: entry.updatedAt, movie: mapMovie(entry.movie) })),
+        filters,
+        sort
+      ).map(({ movie }) => movie.id);
+      const savedMovieByMovieId = new Map(savedMovies.map((entry) => [entry.movieId, entry]));
 
-      return savedMovies.map(mapUserMovie);
+      return sortedMovieIds
+        .map((movieId) => savedMovieByMovieId.get(movieId))
+        .filter((entry): entry is UserMovieWithRelations => Boolean(entry))
+        .map(mapUserMovie);
+    },
+    smartCollections: async (_: unknown, __: unknown, context: Context) => {
+      const userId = await context.getUserId();
+      const savedEntries = await getSavedMovieEntries(userId);
+      const collectionMovies = await prisma.collectionMovie.findMany({
+        where: {
+          collection: {
+            userId,
+            title: { not: WATCHLIST_TITLE }
+          }
+        },
+        select: { movieId: true }
+      });
+      const moviesInCollections = new Set(collectionMovies.map(({ movieId }) => movieId));
+      const entries = savedEntries.map(({ addedAt, movie }) => ({ addedAt, movie }));
+      const ratingSort = { field: "RATING", direction: "DESC" } satisfies MovieSortInput;
+
+      return [
+        mapSmartCollection(
+          "nineties",
+          "Фильмы 90-х",
+          "Сохраненные фильмы, вышедшие с 1990 по 1999 год.",
+          filterAndSortMovieEntries(entries, { yearFrom: 1990, yearTo: 1999 }, { field: "YEAR", direction: "DESC" })
+        ),
+        mapSmartCollection(
+          "thrillers-high-rating",
+          "Триллеры с рейтингом выше 7",
+          "Напряженные фильмы и сериалы с высоким рейтингом.",
+          filterAndSortMovieEntries(entries, { genre: "триллер", ratingFrom: 7 }, ratingSort)
+        ),
+        mapSmartCollection(
+          "series",
+          "Сериалы",
+          "Все сохраненные сериалы в одном автоматическом списке.",
+          filterAndSortMovieEntries(entries, { mediaType: "series" }, { field: "TITLE", direction: "ASC" })
+        ),
+        mapSmartCollection(
+          "russian-cinema",
+          "Русское кино",
+          "Фильмы и сериалы из России.",
+          filterAndSortMovieEntries(entries, { country: "россия" }, { field: "YEAR", direction: "DESC" })
+        ),
+        mapSmartCollection(
+          "without-collection",
+          "Фильмы без коллекции",
+          "Сохраненные фильмы, которые еще не лежат ни в одной тематической подборке.",
+          filterAndSortMovieEntries(
+            entries.filter(({ movie }) => !moviesInCollections.has(movie.id)),
+            null,
+            { field: "ADDED_AT", direction: "DESC" }
+          )
+        )
+      ];
+    },
+    tasteRecommendations: async (_: unknown, __: unknown, context: Context) => {
+      const userId = await context.getUserId();
+      return getTasteRecommendations(userId);
     },
     movieProgress: async (_: unknown, { movieId }: { movieId: string }, context: Context) => {
       const userId = await context.getUserId();
@@ -376,6 +820,64 @@ export const resolvers = {
     }
   },
   Mutation: {
+    register: async (
+      _: unknown,
+      { input }: { input: { name: string; email: string; password: string } },
+      context: Context
+    ) => {
+      const name = requireName(input.name);
+      const email = requireEmail(input.email);
+
+      try {
+        validatePassword(input.password);
+      } catch (error) {
+        throw new GraphQLError(error instanceof Error ? error.message : "Некорректный пароль.", {
+          extensions: { code: "BAD_USER_INPUT" }
+        });
+      }
+
+      const existing = await prisma.user.findUnique({ where: { email } });
+
+      if (existing) {
+        throw new GraphQLError("Пользователь с таким email уже существует.", {
+          extensions: { code: "BAD_USER_INPUT" }
+        });
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          name,
+          email,
+          passwordHash: await hashPassword(input.password)
+        }
+      });
+      await startUserSession(user.id, context);
+
+      return { user: mapUser(user) };
+    },
+    login: async (_: unknown, { input }: { input: { email: string; password: string } }, context: Context) => {
+      const email = requireEmail(input.email);
+      const user = await prisma.user.findUnique({ where: { email } });
+      const isPasswordValid = await verifyPassword(input.password, user?.passwordHash);
+
+      if (!user || !isPasswordValid) {
+        throw new GraphQLError("Неверный email или пароль.", {
+          extensions: { code: "UNAUTHENTICATED" }
+        });
+      }
+
+      await startUserSession(user.id, context);
+      return { user: mapUser(user) };
+    },
+    logout: async (_: unknown, __: unknown, context: Context) => {
+      await deleteSessionToken(context.sessionToken);
+      context.clearSessionCookie();
+      return true;
+    },
+    claimMockUserData: async (_: unknown, __: unknown, context: Context) => {
+      const userId = await context.getUserId();
+      return claimMockUserData(userId);
+    },
     createCollection: async (
       _: unknown,
       { input }: { input: { title: string; description?: string | null; tags?: string[] | null } },

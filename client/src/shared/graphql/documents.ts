@@ -20,19 +20,41 @@ export const MOVIE_CARD_FIELDS = gql`
   }
 `;
 
-export const SEARCH_MOVIES = gql`
-  query SearchMovies($query: String!) {
-    searchMovies(query: $query) {
+export const SEARCH_MOVIE_FIELDS = gql`
+  fragment SearchMovieFields on MovieSearchResult {
+    id
+    externalId
+    titleRu
+    titleEn
+    originalTitle
+    year
+    posterUrl
+    rating
+    description
+    mediaType
+    country
+    genres
+    actors
+  }
+`;
+
+export const ME = gql`
+  query Me {
+    me {
       id
-      externalId
-      titleRu
-      titleEn
-      originalTitle
-      year
-      posterUrl
-      rating
-      description
-      mediaType
+      name
+      email
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const SEARCH_MOVIES = gql`
+  ${SEARCH_MOVIE_FIELDS}
+  query SearchMovies($query: String!, $filters: MovieFiltersInput, $sort: MovieSortInput) {
+    searchMovies(query: $query, filters: $filters, sort: $sort) {
+      ...SearchMovieFields
     }
   }
 `;
@@ -101,8 +123,8 @@ export const COLLECTIONS = gql`
 
 export const COLLECTION = gql`
   ${COLLECTION_FIELDS}
-  query Collection($id: ID!) {
-    collection(id: $id) {
+  query Collection($id: ID!, $filters: MovieFiltersInput, $sort: MovieSortInput) {
+    collection(id: $id, filters: $filters, sort: $sort) {
       ...CollectionFields
     }
   }
@@ -110,8 +132,8 @@ export const COLLECTION = gql`
 
 export const WATCHLIST = gql`
   ${COLLECTION_FIELDS}
-  query Watchlist {
-    watchlist {
+  query Watchlist($filters: MovieFiltersInput, $sort: MovieSortInput) {
+    watchlist(filters: $filters, sort: $sort) {
       ...CollectionFields
     }
   }
@@ -119,9 +141,38 @@ export const WATCHLIST = gql`
 
 export const SAVED_MOVIES = gql`
   ${USER_MOVIE_FIELDS}
-  query SavedMovies($status: WatchStatus) {
-    savedMovies(status: $status) {
+  query SavedMovies($status: WatchStatus, $filters: MovieFiltersInput, $sort: MovieSortInput) {
+    savedMovies(status: $status, filters: $filters, sort: $sort) {
       ...UserMovieFields
+    }
+  }
+`;
+
+export const SMART_COLLECTIONS = gql`
+  ${MOVIE_CARD_FIELDS}
+  query SmartCollections {
+    smartCollections {
+      id
+      title
+      description
+      movieCount
+      movies {
+        ...MovieCardFields
+      }
+    }
+  }
+`;
+
+export const TASTE_RECOMMENDATIONS = gql`
+  ${MOVIE_CARD_FIELDS}
+  query TasteRecommendations {
+    tasteRecommendations {
+      score
+      reason
+      sourceUsers
+      movie {
+        ...MovieCardFields
+      }
     }
   }
 `;
@@ -141,6 +192,59 @@ export const MOVIE_PROGRESS_BY_EXTERNAL_ID = gql`
     movieProgressByExternalId(externalId: $externalId) {
       ...UserMovieFields
     }
+  }
+`;
+
+export const RELATED_MOVIES = gql`
+  ${SEARCH_MOVIE_FIELDS}
+  query RelatedMovies($id: String!) {
+    relatedMovies(id: $id) {
+      id
+      title
+      movies {
+        ...SearchMovieFields
+      }
+    }
+  }
+`;
+
+export const REGISTER_USER = gql`
+  mutation Register($input: RegisterInput!) {
+    register(input: $input) {
+      user {
+        id
+        name
+        email
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+export const LOGIN = gql`
+  mutation Login($input: LoginInput!) {
+    login(input: $input) {
+      user {
+        id
+        name
+        email
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+export const LOGOUT = gql`
+  mutation Logout {
+    logout
+  }
+`;
+
+export const CLAIM_MOCK_USER_DATA = gql`
+  mutation ClaimMockUserData {
+    claimMockUserData
   }
 `;
 

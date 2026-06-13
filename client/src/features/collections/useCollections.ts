@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@apollo/client";
 import type { Collection } from "../../entities/collection/types";
+import type { MovieFilters, MovieSort } from "../../entities/movie/types";
 import {
   COLLECTION,
   COLLECTIONS,
@@ -21,9 +22,9 @@ export function useCollections() {
   return useQuery<CollectionsData>(COLLECTIONS);
 }
 
-export function useCollection(id: string) {
+export function useCollection(id: string, filters?: MovieFilters, sort?: MovieSort) {
   return useQuery<CollectionData>(COLLECTION, {
-    variables: { id },
+    variables: { id, filters, sort },
     skip: !id
   });
 }

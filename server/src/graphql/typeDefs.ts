@@ -4,6 +4,7 @@ export const typeDefs = `#graphql
     name: String!
     email: String!
     createdAt: String!
+    updatedAt: String!
   }
 
   type Movie {
@@ -35,6 +36,9 @@ export const typeDefs = `#graphql
     rating: Float
     description: String
     mediaType: String!
+    country: String
+    genres: [String!]!
+    actors: [String!]!
   }
 
   type MovieDetails {
@@ -86,6 +90,68 @@ export const typeDefs = `#graphql
     updatedAt: String!
   }
 
+  type AuthPayload {
+    user: User!
+  }
+
+  type RelatedMovieGroup {
+    id: ID!
+    title: String!
+    movies: [MovieSearchResult!]!
+  }
+
+  type SmartCollection {
+    id: ID!
+    title: String!
+    description: String!
+    movies: [Movie!]!
+    movieCount: Int!
+  }
+
+  type TasteRecommendation {
+    movie: Movie!
+    score: Float!
+    reason: String!
+    sourceUsers: [String!]!
+  }
+
+  enum MovieSortField {
+    ADDED_AT
+    RATING
+    YEAR
+    TITLE
+  }
+
+  enum SortDirection {
+    ASC
+    DESC
+  }
+
+  input MovieFiltersInput {
+    yearFrom: Int
+    yearTo: Int
+    genre: String
+    mediaType: String
+    ratingFrom: Float
+    country: String
+  }
+
+  input MovieSortInput {
+    field: MovieSortField!
+    direction: SortDirection!
+  }
+
+  input RegisterInput {
+    name: String!
+    email: String!
+    password: String!
+  }
+
+  input LoginInput {
+    email: String!
+    password: String!
+  }
+
   input CreateCollectionInput {
     title: String!
     description: String
@@ -122,17 +188,25 @@ export const typeDefs = `#graphql
   }
 
   type Query {
-    searchMovies(query: String!): [MovieSearchResult!]!
+    me: User
+    searchMovies(query: String!, filters: MovieFiltersInput, sort: MovieSortInput): [MovieSearchResult!]!
     movieDetails(id: String!): MovieDetails
+    relatedMovies(id: String!): [RelatedMovieGroup!]!
     collections: [Collection!]!
-    collection(id: ID!): Collection
-    watchlist: Collection!
-    savedMovies(status: WatchStatus): [UserMovie!]!
+    collection(id: ID!, filters: MovieFiltersInput, sort: MovieSortInput): Collection
+    watchlist(filters: MovieFiltersInput, sort: MovieSortInput): Collection!
+    savedMovies(status: WatchStatus, filters: MovieFiltersInput, sort: MovieSortInput): [UserMovie!]!
+    smartCollections: [SmartCollection!]!
+    tasteRecommendations: [TasteRecommendation!]!
     movieProgress(movieId: ID!): UserMovie
     movieProgressByExternalId(externalId: String!): UserMovie
   }
 
   type Mutation {
+    register(input: RegisterInput!): AuthPayload!
+    login(input: LoginInput!): AuthPayload!
+    logout: Boolean!
+    claimMockUserData: Boolean!
     createCollection(input: CreateCollectionInput!): Collection!
     updateCollection(id: ID!, input: UpdateCollectionInput!): Collection!
     deleteCollection(id: ID!): Boolean!

@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { MovieCard } from "../../components/MovieCard/MovieCard";
 import { MovieProgressEditor } from "../../components/MovieProgressEditor/MovieProgressEditor";
-import type { UserMovie, WatchStatus } from "../../entities/movie/types";
+import { MovieFiltersBar } from "../../components/MovieFiltersBar/MovieFiltersBar";
+import type { MovieFilters, MovieSort, UserMovie, WatchStatus } from "../../entities/movie/types";
 import { watchStatusLabels } from "../../entities/movie/types";
 import { SAVED_MOVIES } from "../../shared/graphql/documents";
 import styles from "./LibraryPage.module.css";
@@ -23,9 +24,13 @@ const filters: { value: WatchStatus | "ALL"; label: string }[] = [
 
 export function LibraryPage() {
   const [status, setStatus] = useState<WatchStatus | "ALL">("ALL");
+  const [filtersState, setFiltersState] = useState<MovieFilters>({});
+  const [sort, setSort] = useState<MovieSort>({ field: "ADDED_AT", direction: "DESC" });
   const { data, loading, error } = useQuery<SavedMoviesData>(SAVED_MOVIES, {
     variables: {
-      status: status === "ALL" ? null : status
+      status: status === "ALL" ? null : status,
+      filters: filtersState,
+      sort
     }
   });
   const entries = data?.savedMovies ?? [];
@@ -56,6 +61,13 @@ export function LibraryPage() {
             </button>
           ))}
         </div>
+
+        <MovieFiltersBar
+          filters={filtersState}
+          sort={sort}
+          onFiltersChange={setFiltersState}
+          onSortChange={setSort}
+        />
 
         {loading ? <div className={styles.state}>Загружаем библиотеку...</div> : null}
         {error ? (

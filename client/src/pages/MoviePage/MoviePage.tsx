@@ -3,13 +3,23 @@ import { ArrowLeft, BookOpen, BookmarkPlus, CheckCircle2, Clock, Globe2, Star, T
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AddToCollectionModal } from "../../components/AddToCollectionModal/AddToCollectionModal";
+import { MovieCard } from "../../components/MovieCard/MovieCard";
 import { MovieProgressEditor } from "../../components/MovieProgressEditor/MovieProgressEditor";
-import { getMediaTypeLabel, getMovieTitle, toMovieInput, type MovieDetails, type UserMovie } from "../../entities/movie/types";
+import {
+  getMediaTypeLabel,
+  getMovieTitle,
+  toMovieInput,
+  type MovieDetails,
+  type MovieSearchResult,
+  type RelatedMovieGroup,
+  type UserMovie
+} from "../../entities/movie/types";
 import {
   ADD_MOVIE_TO_LIBRARY,
   ADD_MOVIE_TO_WATCHLIST,
   MOVIE_DETAILS,
   MOVIE_PROGRESS_BY_EXTERNAL_ID,
+  RELATED_MOVIES,
   SAVED_MOVIES,
   WATCHLIST
 } from "../../shared/graphql/documents";
@@ -23,10 +33,14 @@ type MovieProgressData = {
   movieProgressByExternalId: UserMovie | null;
 };
 
+type RelatedMoviesData = {
+  relatedMovies: RelatedMovieGroup[];
+};
+
 export function MoviePage() {
   const { movieId = "" } = useParams();
   const decodedMovieId = decodeURIComponent(movieId);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState<MovieSearchResult | MovieDetails | null>(null);
   const [watchlistMessage, setWatchlistMessage] = useState<string | null>(null);
   const { data, loading, error } = useQuery<MovieDetailsData>(MOVIE_DETAILS, {
     variables: { id: decodedMovieId },
@@ -44,7 +58,12 @@ export function MoviePage() {
     variables: { externalId: movie?.externalId ?? "" },
     skip: !movie?.externalId
   });
+  const { data: relatedData } = useQuery<RelatedMoviesData>(RELATED_MOVIES, {
+    variables: { id: decodedMovieId },
+    skip: !decodedMovieId || !movie
+  });
   const progress = progressData?.movieProgressByExternalId ?? null;
+  const relatedGroups = relatedData?.relatedMovies ?? [];
 
   if (loading) {
     return (
@@ -85,30 +104,38 @@ export function MoviePage() {
 
   const title = getMovieTitle(movie);
 
-  async function handleWatchlist() {
-    if (!movieInput) {
+  async function handleWatchlist(targetMovie?: MovieSearchResult | MovieDetails | null) {
+    const sourceMovie = targetMovie ?? movie;
+    const input = sourceMovie ? toMovieInput(sourceMovie) : null;
+
+    if (!input) {
       return;
     }
 
     await addMovieToWatchlist({
       variables: {
-        movieInput
+        movieInput: input
       }
     });
     setWatchlistMessage("Добавлено в список");
   }
 
-  async function handleLibrary() {
-    if (!movieInput) {
+  async function handleLibrary(targetMovie?: MovieSearchResult | MovieDetails | null) {
+    const sourceMovie = targetMovie ?? movie;
+    const input = sourceMovie ? toMovieInput(sourceMovie) : null;
+
+    if (!input) {
       return;
     }
 
     await addMovieToLibrary({
       variables: {
-        movieInput
+        movieInput: input
       }
     });
-    await refetchProgress();
+    if (sourceMovie && movie && sourceMovie.externalId === movie.externalId) {
+      await refetchProgress();
+    }
     setWatchlistMessage("Добавлено в библиотеку");
   }
 
@@ -182,7 +209,7 @@ export function MoviePage() {
               </div>
 
               <div className={styles.actions}>
-                <button className="buttonPrimary" type="button" onClick={() => setIsModalOpen(true)}>
+                <button className="buttonPrimary" type="button" onClick={() => setSelectedMovie(movie)}>
                   <BookmarkPlus size={18} aria-hidden />
                   Добавить в коллекцию
                 </button>
@@ -190,7 +217,7 @@ export function MoviePage() {
                   className="buttonSecondary"
                   type="button"
                   disabled={libraryState.loading}
-                  onClick={handleLibrary}
+                  onClick={() => handleLibrary()}
                 >
                   <BookOpen size={18} aria-hidden />
                   В библиотеку
@@ -199,7 +226,7 @@ export function MoviePage() {
                   className="buttonSecondary"
                   type="button"
                   disabled={watchlistState.loading}
-                  onClick={handleWatchlist}
+                  onClick={() => handleWatchlist()}
                 >
                   <Timer size={18} aria-hidden />
                   Хочу посмотреть
@@ -214,6 +241,27 @@ export function MoviePage() {
               ) : null}
             </article>
           </div>
+
+          {relatedGroups.length > 0 ? (
+            <div className={styles.related}>
+              {relatedGroups.map((group) => (
+                <section className={styles.relatedGroup} key={group.id}>
+                  <h2>{group.title}</h2>
+                  <div className={styles.relatedGrid}>
+                    {group.movies.map((relatedMovie) => (
+                      <MovieCard
+                        key={relatedMovie.externalId}
+                        movie={relatedMovie}
+                        onAdd={setSelectedMovie}
+                        onLibrary={handleLibrary}
+                        onWatchlist={handleWatchlist}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -225,9 +273,9 @@ export function MoviePage() {
       ) : null}
 
       <AddToCollectionModal
-        movie={isModalOpen ? movie : null}
-        movieInput={isModalOpen ? movieInput : null}
-        onClose={() => setIsModalOpen(false)}
+        movie={selectedMovie}
+        movieInput={selectedMovie ? toMovieInput(selectedMovie) : null}
+        onClose={() => setSelectedMovie(null)}
       />
     </>
   );

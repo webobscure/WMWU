@@ -1,11 +1,16 @@
-import { BookOpen, Library, Moon, Search, Sun, Timer } from "lucide-react";
+import { useMutation } from "@apollo/client";
+import { BookOpen, Import, Library, LogOut, Moon, Search, Sun, Timer, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
+import type { CurrentUser } from "../../entities/movie/types";
+import { CLAIM_MOCK_USER_DATA, COLLECTIONS, SAVED_MOVIES, SMART_COLLECTIONS, WATCHLIST } from "../../shared/graphql/documents";
 import styles from "./AppLayout.module.css";
 
 type Props = {
   children: ReactNode;
+  user?: CurrentUser | null;
+  onLogout?: () => void;
 };
 
 function WmwuLogo() {
@@ -23,13 +28,16 @@ function WmwuLogo() {
   );
 }
 
-export function AppLayout({ children }: Props) {
+export function AppLayout({ children, user, onLogout }: Props) {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") {
       return "light";
     }
 
     return window.localStorage.getItem("theme") === "dark" ? "dark" : "light";
+  });
+  const [claimMockUserData, claimState] = useMutation(CLAIM_MOCK_USER_DATA, {
+    refetchQueries: [COLLECTIONS, WATCHLIST, SAVED_MOVIES, SMART_COLLECTIONS]
   });
 
   useEffect(() => {
@@ -93,6 +101,36 @@ export function AppLayout({ children }: Props) {
               >
                 {theme === "dark" ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
               </button>
+
+              {user ? (
+                <div className={styles.account}>
+                  <span className={styles.userPill} title={user.email}>
+                    <UserRound size={17} aria-hidden />
+                    {user.name}
+                  </span>
+                  <button
+                    className={styles.themeButton}
+                    type="button"
+                    disabled={claimState.loading}
+                    onClick={() => claimMockUserData()}
+                    aria-label="Перенести данные mock-пользователя"
+                    title="Перенести mock-данные"
+                  >
+                    <Import size={18} aria-hidden />
+                  </button>
+                  {onLogout ? (
+                    <button
+                      className={styles.themeButton}
+                      type="button"
+                      onClick={onLogout}
+                      aria-label="Выйти"
+                      title="Выйти"
+                    >
+                      <LogOut size={18} aria-hidden />
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </nav>
         </div>

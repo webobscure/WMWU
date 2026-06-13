@@ -1,17 +1,19 @@
-import { useMutation } from "@apollo/client";
-import { AlertCircle, BookmarkPlus, CheckCircle2, Search, Sparkles } from "lucide-react";
+import { useMutation, useQuery } from "@apollo/client";
+import { AlertCircle, BookmarkPlus, CheckCircle2, Search, Sparkles, UsersRound } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { AddToCollectionModal } from "../../components/AddToCollectionModal/AddToCollectionModal";
-import { MovieCard } from "../../components/MovieCard/MovieCard";
 import { MovieCardSkeletons } from "../../components/Loading/Skeleton";
-import type { MovieSearchResult } from "../../entities/movie/types";
+import { MovieCard } from "../../components/MovieCard/MovieCard";
+import { MovieFiltersBar } from "../../components/MovieFiltersBar/MovieFiltersBar";
+import type { MovieFilters, MovieSearchResult, MovieSort, TasteRecommendation } from "../../entities/movie/types";
 import { toMovieInput } from "../../entities/movie/types";
 import { useMovieSearch } from "../../features/movieSearch/useMovieSearch";
 import {
   ADD_MOVIE_TO_LIBRARY,
   ADD_MOVIE_TO_WATCHLIST,
   SAVED_MOVIES,
+  TASTE_RECOMMENDATIONS,
   WATCHLIST
 } from "../../shared/graphql/documents";
 import styles from "./HomePage.module.css";
@@ -25,25 +27,55 @@ const recommendedCollections = [
   "Сериалы для выходных"
 ];
 
+type TasteRecommendationsData = {
+  tasteRecommendations: TasteRecommendation[];
+};
+
 export function HomePage() {
   const [query, setQuery] = useState("");
   const [emptyQuery, setEmptyQuery] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<MovieSearchResult | null>(null);
   const [watchlistMessage, setWatchlistMessage] = useState<string | null>(null);
+  const [filters, setFilters] = useState<MovieFilters>({});
+  const [sort, setSort] = useState<MovieSort>({ field: "RATING", direction: "DESC" });
+  const [areSuggestionsOpen, setAreSuggestionsOpen] = useState(false);
   const [searchMovies, { data, loading, error, called }] = useMovieSearch();
+  const [loadSuggestions, suggestionsState] = useMovieSearch();
+  const { data: tasteData } = useQuery<TasteRecommendationsData>(TASTE_RECOMMENDATIONS);
   const [addMovieToWatchlist] = useMutation(ADD_MOVIE_TO_WATCHLIST, {
-    refetchQueries: [WATCHLIST, SAVED_MOVIES]
+    refetchQueries: [WATCHLIST, SAVED_MOVIES, TASTE_RECOMMENDATIONS]
   });
   const [addMovieToLibrary] = useMutation(ADD_MOVIE_TO_LIBRARY, {
-    refetchQueries: [SAVED_MOVIES]
+    refetchQueries: [SAVED_MOVIES, TASTE_RECOMMENDATIONS]
   });
   const movies = data?.searchMovies ?? [];
+  const tasteRecommendations = tasteData?.tasteRecommendations ?? [];
 
   useEffect(() => {
     if (query.trim()) {
       setEmptyQuery(false);
     }
   }, [query]);
+
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+
+    if (normalizedQuery.length < 2) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      loadSuggestions({
+        variables: {
+          query: normalizedQuery,
+          filters,
+          sort: { field: "RATING", direction: "DESC" }
+        }
+      });
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [filters, loadSuggestions, query]);
 
   const modalMovieInput = useMemo(() => (selectedMovie ? toMovieInput(selectedMovie) : null), [selectedMovie]);
 
@@ -56,7 +88,21 @@ export function HomePage() {
       return;
     }
 
-    searchMovies({ variables: { query: normalizedQuery } });
+    setAreSuggestionsOpen(false);
+    searchMovies({ variables: { query: normalizedQuery, filters, sort } });
+  }
+
+  function handleSuggestion(movie: MovieSearchResult) {
+    const title = movie.titleRu || movie.titleEn || movie.originalTitle || "";
+    setQuery(title);
+    setAreSuggestionsOpen(false);
+    searchMovies({
+      variables: {
+        query: title,
+        filters,
+        sort
+      }
+    });
   }
 
   async function handleWatchlist(movie: MovieSearchResult) {
@@ -94,10 +140,24 @@ export function HomePage() {
                   <Search size={20} aria-hidden />
                   <input
                     value={query}
-                    onChange={(event) => setQuery(event.target.value)}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      setAreSuggestionsOpen(true);
+                    }}
+                    onFocus={() => setAreSuggestionsOpen(true)}
                     placeholder="Название фильма или сериала"
                     aria-label="Название фильма или сериала"
                   />
+                  {areSuggestionsOpen && query.trim().length >= 2 && suggestionsState.data?.searchMovies.length ? (
+                    <div className={styles.suggestions}>
+                      {suggestionsState.data.searchMovies.slice(0, 6).map((movie) => (
+                        <button key={movie.externalId} type="button" onClick={() => handleSuggestion(movie)}>
+                          <span>{movie.titleRu || movie.titleEn || movie.originalTitle}</span>
+                          <small>{movie.year ?? "год не указан"}</small>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <button className="buttonPrimary" type="submit" disabled={loading}>
                   Искать
@@ -130,6 +190,41 @@ export function HomePage() {
       </section>
 
       <section className="container">
+        {tasteRecommendations.length > 0 ? (
+          <section className={styles.tasteSection} aria-label="Рекомендации по похожему вкусу">
+            <div className={styles.tasteHeader}>
+              <div>
+                <span>
+                  <UsersRound size={18} aria-hidden />
+                  Похожие вкусы
+                </span>
+                <h2>Понравилось пользователям со схожим вкусом</h2>
+              </div>
+            </div>
+
+            <div className={styles.tasteGrid}>
+              {tasteRecommendations.map((recommendation) => (
+                <article className={styles.tasteCard} key={recommendation.movie.id}>
+                  <MovieCard
+                    movie={recommendation.movie}
+                    onAdd={setSelectedMovie}
+                    onLibrary={handleLibrary}
+                    onWatchlist={handleWatchlist}
+                  />
+                  <div className={styles.tasteReason}>
+                    <strong>{recommendation.reason}</strong>
+                    {recommendation.sourceUsers.length > 0 ? (
+                      <small>{recommendation.sourceUsers.join(", ")}</small>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <MovieFiltersBar filters={filters} sort={sort} onFiltersChange={setFilters} onSortChange={setSort} />
+
         <div className={styles.resultsHeader}>
           <div>
             <h2>Результаты поиска</h2>

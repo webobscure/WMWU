@@ -1,17 +1,22 @@
 import { useApolloClient } from "@apollo/client";
 import { ArrowLeft, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CollectionForm } from "../../components/CollectionForm/CollectionForm";
 import { MovieCard } from "../../components/MovieCard/MovieCard";
+import { MovieFiltersBar } from "../../components/MovieFiltersBar/MovieFiltersBar";
+import type { MovieFilters, MovieSort } from "../../entities/movie/types";
 import { useCollection, useCollectionMutations } from "../../features/collections/useCollections";
 import { COLLECTIONS } from "../../shared/graphql/documents";
 import styles from "./CollectionPage.module.css";
 
 export function CollectionPage() {
   const { collectionId = "" } = useParams();
+  const [filters, setFilters] = useState<MovieFilters>({});
+  const [sort, setSort] = useState<MovieSort>({ field: "ADDED_AT", direction: "DESC" });
   const navigate = useNavigate();
   const client = useApolloClient();
-  const { data, loading, error } = useCollection(collectionId);
+  const { data, loading, error } = useCollection(collectionId, filters, sort);
   const { updateCollection, updateState, deleteCollection, deleteState, removeMovie, removeState } =
     useCollectionMutations();
   const collection = data?.collection ?? null;
@@ -98,6 +103,8 @@ export function CollectionPage() {
           </aside>
 
           <div className={styles.moviesPanel}>
+            <MovieFiltersBar filters={filters} sort={sort} onFiltersChange={setFilters} onSortChange={setSort} />
+
             {collection.movies.length === 0 ? (
               <div className={styles.empty}>
                 <h2>В коллекции пока нет фильмов</h2>

@@ -1,13 +1,22 @@
-import { AlertCircle, ExternalLink, Film, Trash2 } from "lucide-react";
+import { useQuery } from "@apollo/client";
+import { AlertCircle, ExternalLink, Film, Sparkles, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CollectionForm } from "../../components/CollectionForm/CollectionForm";
+import type { SmartCollection } from "../../entities/movie/types";
 import { useCollectionMutations, useCollections } from "../../features/collections/useCollections";
+import { SMART_COLLECTIONS } from "../../shared/graphql/documents";
 import styles from "./CollectionsPage.module.css";
+
+type SmartCollectionsData = {
+  smartCollections: SmartCollection[];
+};
 
 export function CollectionsPage() {
   const { data, loading, error } = useCollections();
+  const { data: smartData } = useQuery<SmartCollectionsData>(SMART_COLLECTIONS);
   const { createCollection, createState, deleteCollection, deleteState } = useCollectionMutations();
   const collections = data?.collections ?? [];
+  const smartCollections = smartData?.smartCollections.filter((collection) => collection.movieCount > 0) ?? [];
 
   return (
     <section className={styles.page}>
@@ -18,6 +27,29 @@ export function CollectionsPage() {
             <p>Создавайте подборки, редактируйте описания и возвращайтесь к сохраненным фильмам.</p>
           </div>
         </div>
+
+        {smartCollections.length > 0 ? (
+          <section className={styles.smartSection} aria-label="Умные коллекции">
+            <div className={styles.smartHeader}>
+              <Sparkles size={18} aria-hidden />
+              Умные коллекции
+            </div>
+            <div className={styles.smartGrid}>
+              {smartCollections.map((collection) => (
+                <article className={styles.smartCard} key={collection.id}>
+                  <span>{collection.movieCount} фильмов</span>
+                  <h2>{collection.title}</h2>
+                  <p>{collection.description}</p>
+                  <div className={styles.smartMovies}>
+                    {collection.movies.slice(0, 4).map((movie) => (
+                      <small key={movie.id}>{movie.titleRu || movie.titleEn || movie.originalTitle}</small>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <div className={styles.grid}>
           <aside className={styles.createPanel}>

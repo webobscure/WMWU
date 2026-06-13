@@ -35,6 +35,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .link,
@@ -63,6 +65,30 @@
   color: var(--text);
 }
 
+.account {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.userPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 180px;
+  min-height: 40px;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 560px) {
   .nav {
     min-height: 68px;
@@ -78,6 +104,18 @@
     gap: 6px;
     padding: 0 8px;
     font-size: 13px;
+  }
+
+  .userPill {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+    color: transparent;
+  }
+
+  .userPill svg {
+    color: var(--text);
+    flex: 0 0 auto;
   }
 }
 

@@ -1,8 +1,11 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { ArrowLeft, Search, Timer, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { MovieCard } from "../../components/MovieCard/MovieCard";
+import { MovieFiltersBar } from "../../components/MovieFiltersBar/MovieFiltersBar";
 import type { Collection } from "../../entities/collection/types";
+import type { MovieFilters, MovieSort } from "../../entities/movie/types";
 import { REMOVE_MOVIE_FROM_WATCHLIST, WATCHLIST } from "../../shared/graphql/documents";
 import styles from "./WatchlistPage.module.css";
 
@@ -11,7 +14,11 @@ type WatchlistData = {
 };
 
 export function WatchlistPage() {
-  const { data, loading, error } = useQuery<WatchlistData>(WATCHLIST);
+  const [filters, setFilters] = useState<MovieFilters>({});
+  const [sort, setSort] = useState<MovieSort>({ field: "ADDED_AT", direction: "ASC" });
+  const { data, loading, error } = useQuery<WatchlistData>(WATCHLIST, {
+    variables: { filters, sort }
+  });
   const [removeMovie, removeState] = useMutation(REMOVE_MOVIE_FROM_WATCHLIST);
   const watchlist = data?.watchlist;
   const movies = watchlist?.movies ?? [];
@@ -34,6 +41,8 @@ export function WatchlistPage() {
             <p>Фильмы и сериалы показаны в порядке добавления: от первых сохраненных к последним.</p>
           </div>
         </div>
+
+        <MovieFiltersBar filters={filters} sort={sort} onFiltersChange={setFilters} onSortChange={setSort} />
 
         {loading ? <div className={styles.state}>Загружаем список...</div> : null}
         {error ? (
