@@ -1,16 +1,25 @@
-import { useMutation } from "@apollo/client";
+import { useApolloClient, useMutation } from "@apollo/client";
 import { BookOpen, Import, Library, LogOut, Moon, Search, Sun, Timer, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import type { CurrentUser } from "../../entities/movie/types";
-import { CLAIM_MOCK_USER_DATA, COLLECTIONS, SAVED_MOVIES, SMART_COLLECTIONS, WATCHLIST } from "../../shared/graphql/documents";
+import { CLAIM_MOCK_USER_DATA } from "../../shared/graphql/documents";
 import styles from "./AppLayout.module.css";
 
 type Props = {
   children: ReactNode;
   user?: CurrentUser | null;
   onLogout?: () => void;
+};
+
+type ClaimMockUserDataResult = {
+  claimMockUserData: boolean;
+};
+
+type ClaimStatus = {
+  tone: "success" | "info" | "error";
+  message: string;
 };
 
 function WmwuLogo() {
@@ -29,6 +38,7 @@ function WmwuLogo() {
 }
 
 export function AppLayout({ children, user, onLogout }: Props) {
+  const client = useApolloClient();
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") {
       return "light";
@@ -36,14 +46,43 @@ export function AppLayout({ children, user, onLogout }: Props) {
 
     return window.localStorage.getItem("theme") === "dark" ? "dark" : "light";
   });
-  const [claimMockUserData, claimState] = useMutation(CLAIM_MOCK_USER_DATA, {
-    refetchQueries: [COLLECTIONS, WATCHLIST, SAVED_MOVIES, SMART_COLLECTIONS]
-  });
+  const [claimStatus, setClaimStatus] = useState<ClaimStatus | null>(null);
+  const [claimMockUserData, claimState] = useMutation<ClaimMockUserDataResult>(CLAIM_MOCK_USER_DATA);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     window.localStorage.setItem("theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!claimStatus) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setClaimStatus(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [claimStatus]);
+
+  async function handleClaimMockUserData() {
+    setClaimStatus(null);
+
+    try {
+      const { data } = await claimMockUserData();
+
+      if (data?.claimMockUserData) {
+        await client.resetStore();
+        setClaimStatus({ tone: "success", message: "Данные импортированы." });
+        return;
+      }
+
+      setClaimStatus({ tone: "info", message: "Новых данных для импорта нет." });
+    } catch (error) {
+      setClaimStatus({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Не удалось импортировать данные."
+      });
+    }
+  }
 
   return (
     <div className={styles.shell}>
@@ -112,12 +151,21 @@ export function AppLayout({ children, user, onLogout }: Props) {
                     className={styles.themeButton}
                     type="button"
                     disabled={claimState.loading}
-                    onClick={() => claimMockUserData()}
+                    onClick={() => void handleClaimMockUserData()}
                     aria-label="Перенести данные mock-пользователя"
                     title="Перенести mock-данные"
                   >
                     <Import size={18} aria-hidden />
                   </button>
+                  {claimStatus ? (
+                    <span
+                      className={styles.claimStatus}
+                      data-tone={claimStatus.tone}
+                      role={claimStatus.tone === "error" ? "alert" : "status"}
+                    >
+                      {claimStatus.message}
+                    </span>
+                  ) : null}
                   {onLogout ? (
                     <button
                       className={styles.themeButton}

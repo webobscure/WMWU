@@ -457,80 +457,84 @@ async function claimMockUserData(userId: string) {
     return false;
   }
 
-  await prisma.$transaction(async (tx) => {
-    const [mockWatchlist, targetWatchlist] = await Promise.all([
-      tx.collection.findFirst({
-        where: { userId: mockUser.id, title: WATCHLIST_TITLE },
+  return prisma.$transaction(async (tx) => {
+    const [mockCollections, mockUserMovies] = await Promise.all([
+      tx.collection.findMany({
+        where: { userId: mockUser.id },
         include: { collectionMovies: true }
       }),
-      tx.collection.findFirst({
-        where: { userId, title: WATCHLIST_TITLE },
-        include: { collectionMovies: true }
-      })
+      tx.userMovie.findMany({ where: { userId: mockUser.id } })
     ]);
+    let imported = false;
 
-    if (mockWatchlist && targetWatchlist) {
-      for (const item of mockWatchlist.collectionMovies) {
-        await tx.collectionMovie.upsert({
-          where: {
-            collectionId_movieId: {
-              collectionId: targetWatchlist.id,
-              movieId: item.movieId
-            }
+    for (const sourceCollection of mockCollections) {
+      let targetCollection = await tx.collection.findFirst({
+        where: { userId, title: sourceCollection.title },
+        include: { collectionMovies: true }
+      });
+
+      if (!targetCollection) {
+        targetCollection = await tx.collection.create({
+          data: {
+            title: sourceCollection.title,
+            description: sourceCollection.description,
+            tags: sourceCollection.tags,
+            userId,
+            createdAt: sourceCollection.createdAt,
+            updatedAt: sourceCollection.updatedAt
           },
-          update: {},
-          create: {
-            collectionId: targetWatchlist.id,
+          include: { collectionMovies: true }
+        });
+        imported = true;
+      }
+
+      const targetMovieIds = new Set(targetCollection.collectionMovies.map(({ movieId }) => movieId));
+
+      for (const item of sourceCollection.collectionMovies) {
+        if (targetMovieIds.has(item.movieId)) {
+          continue;
+        }
+
+        await tx.collectionMovie.create({
+          data: {
+            collectionId: targetCollection.id,
             movieId: item.movieId,
             createdAt: item.createdAt
           }
         });
+        imported = true;
       }
-
-      await tx.collection.delete({ where: { id: mockWatchlist.id } });
     }
 
-    await tx.collection.updateMany({
-      where: { userId: mockUser.id },
-      data: { userId }
-    });
-
-    const mockUserMovies = await tx.userMovie.findMany({
-      where: { userId: mockUser.id }
-    });
-
     for (const entry of mockUserMovies) {
-      await tx.userMovie.upsert({
+      const existingEntry = await tx.userMovie.findUnique({
         where: {
           userId_movieId: {
             userId,
             movieId: entry.movieId
           }
-        },
-        update: {
-          status: entry.status,
-          personalRating: entry.personalRating,
-          note: entry.note,
-          watchedAt: entry.watchedAt
-        },
-        create: {
-          userId,
-          movieId: entry.movieId,
-          status: entry.status,
-          personalRating: entry.personalRating,
-          note: entry.note,
-          watchedAt: entry.watchedAt,
-          createdAt: entry.createdAt
         }
       });
+
+      if (!existingEntry) {
+        await tx.userMovie.create({
+          data: {
+            userId,
+            movieId: entry.movieId,
+            status: entry.status,
+            personalRating: entry.personalRating,
+            note: entry.note,
+            watchedAt: entry.watchedAt,
+            createdAt: entry.createdAt,
+            updatedAt: entry.updatedAt
+          }
+        });
+        imported = true;
+      }
     }
 
-    await tx.userMovie.deleteMany({
-      where: { userId: mockUser.id }
-    });
+    return imported;
   });
-
-  return true;
 }
 
 async function getTasteRecommendations(userId: string) {
