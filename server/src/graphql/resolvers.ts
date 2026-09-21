@@ -1,30 +1,15 @@
 import { Prisma, WatchStatus, type Collection, type Movie, type User, type UserMovie } from "@prisma/client";
 import { GraphQLError } from "graphql";
-import {
-  createSession,
-  deleteSessionToken,
-  hashPassword,
-  normalizeEmail,
-  type SessionUser,
-  validatePassword,
-  verifyPassword
-} from "../auth.js";
+import { createSession, deleteSessionToken, hashPassword, normalizeEmail, validatePassword, verifyPassword } from "../auth.js";
 import { config } from "../config.js";
 import { prisma } from "../db/prisma.js";
+import type { GraphQLContext as Context } from "./context.js";
 import {
   movieApiService,
   type MovieFiltersInput,
   type MovieSearchResult,
   type MovieSortInput
 } from "../services/movieApi.js";
-
-type Context = {
-  sessionToken: string | null;
-  getCurrentUser: () => Promise<SessionUser | null>;
-  getUserId: () => Promise<string>;
-  setSessionCookie: (token: string, expiresAt: Date) => void;
-  clearSessionCookie: () => void;
-};
 
 type CollectionWithMovies = Collection & {
   user: User;

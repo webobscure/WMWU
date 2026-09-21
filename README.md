@@ -48,12 +48,29 @@ npm run dev
 Frontend: http://localhost:5173  
 GraphQL API: http://localhost:4000/graphql
 
+## Деплой на Vercel
+
+Vercel project должен использовать корень репозитория как **Root Directory**. Не выбирайте `client`: в корне находятся serverless GraphQL API, Prisma schema и `vercel.json`.
+
+Добавьте в Vercel Environment Variables:
+
+```text
+DATABASE_URL=<строка подключения к облачной PostgreSQL>
+MOVIE_API_KEY=<ключ TMDB>
+MOVIE_API_URL=https://api.themoviedb.org/3
+```
+
+Локальный PostgreSQL из Docker недоступен из Vercel. Подключите Prisma Postgres, Neon или другой публично доступный PostgreSQL. Интеграция Prisma Postgres в Vercel автоматически создаёт `DATABASE_URL`.
+
+При deployment команда `npm run vercel-build` генерирует Prisma Client, применяет production-миграции и собирает Vite-клиент. GraphQL API публикуется как `/api/graphql`, а `/graphql` переписывается на этот endpoint для совместимости с клиентом.
+
 ## Основные команды
 
 ```bash
 npm run build
 npm run typecheck
 npm run prisma:generate
+npm run db:deploy
 npm run db:down
 ```
 
@@ -81,8 +98,7 @@ Backend разделен на GraphQL schema/resolvers, Prisma client и сер�
 
 ## Следующие улучшения
 
-- Добавить полноценную регистрацию и вход вместо mock-пользователя.
-- Добавить пагинацию и фильтры поиска по жанрам, году и типу.
+- Добавить пагинацию результатов поиска.
 - Кешировать ответы TMDB на backend.
 - Добавить тесты resolvers и UI-компонентов.
 - Реализовать drag-and-drop сортировку фильмов внутри коллекции.
