@@ -5,6 +5,8 @@ import { Link, useParams } from "react-router-dom";
 import { AddToCollectionModal } from "../../components/AddToCollectionModal/AddToCollectionModal";
 import { MovieCard } from "../../components/MovieCard/MovieCard";
 import { MovieProgressEditor } from "../../components/MovieProgressEditor/MovieProgressEditor";
+import { MovieReviews } from "../../components/MovieReviews/MovieReviews";
+import { MovieTrailers } from "../../components/MovieTrailers/MovieTrailers";
 import {
   getMediaTypeLabel,
   getMovieTitle,
@@ -15,6 +17,9 @@ import {
   type UserMovie
 } from "../../entities/movie/types";
 import {
+  MY_PROFILE,
+  RECOMMENDATIONS,
+  TASTE_RECOMMENDATIONS,
   ADD_MOVIE_TO_LIBRARY,
   ADD_MOVIE_TO_WATCHLIST,
   MOVIE_DETAILS,
@@ -47,10 +52,10 @@ export function MoviePage() {
     skip: !decodedMovieId
   });
   const [addMovieToWatchlist, watchlistState] = useMutation(ADD_MOVIE_TO_WATCHLIST, {
-    refetchQueries: [WATCHLIST, SAVED_MOVIES]
+    refetchQueries: [WATCHLIST, SAVED_MOVIES, MY_PROFILE, RECOMMENDATIONS, TASTE_RECOMMENDATIONS]
   });
   const [addMovieToLibrary, libraryState] = useMutation(ADD_MOVIE_TO_LIBRARY, {
-    refetchQueries: [SAVED_MOVIES]
+    refetchQueries: [SAVED_MOVIES, MY_PROFILE, RECOMMENDATIONS, TASTE_RECOMMENDATIONS]
   });
   const movie = data?.movieDetails ?? null;
   const movieInput = useMemo(() => (movie ? toMovieInput(movie) : null), [movie]);
@@ -161,7 +166,7 @@ export function MoviePage() {
               <div className={styles.typeRow}>
                 <span>{getMediaTypeLabel(movie.mediaType)}</span>
                 {movie.rating ? (
-                  <span>
+                  <span title="Рейтинг TMDB">
                     <Star size={17} fill="currentColor" aria-hidden />
                     {movie.rating}
                   </span>
@@ -170,6 +175,7 @@ export function MoviePage() {
 
               <h1>{title}</h1>
               <p className={styles.original}>{movie.originalTitle || movie.titleEn}</p>
+              <MovieTrailers key={movie.externalId} externalId={movie.externalId} movieTitle={title} />
               <p className={styles.description}>{movie.description || "Описание пока недоступно."}</p>
 
               <dl className={styles.facts}>
@@ -241,6 +247,8 @@ export function MoviePage() {
               ) : null}
             </article>
           </div>
+
+          <MovieReviews key={movie.externalId} externalId={movie.externalId} />
 
           {relatedGroups.length > 0 ? (
             <div className={styles.related}>

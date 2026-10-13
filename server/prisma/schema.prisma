@@ -10,6 +10,7 @@ datasource db {
 model User {
   id          String       @id @default(cuid())
   name        String
+  bio         String?
   email       String       @unique
   passwordHash String?
   createdAt   DateTime     @default(now())
@@ -97,8 +98,21 @@ model UserMovie {
   watchedAt      DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+  review         Review?
 
   @@unique([userId, movieId])
   @@index([movieId])
   @@index([status])
+}
+
+model Review {
+  id          String    @id @default(cuid())
+  userMovieId String    @unique
+  userMovie   UserMovie @relation(fields: [userMovieId], references: [id], onDelete: Cascade)
+  text        String
+  hasSpoilers Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([createdAt])
 }

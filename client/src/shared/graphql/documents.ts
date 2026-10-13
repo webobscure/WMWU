@@ -80,6 +80,19 @@ export const MOVIE_DETAILS = gql`
   }
 `;
 
+export const MOVIE_TRAILERS = gql`
+  query MovieTrailers($id: String!) {
+    movieTrailers(id: $id) {
+      id
+      name
+      key
+      language
+      official
+      type
+    }
+  }
+`;
+
 export const COLLECTION_FIELDS = gql`
   ${MOVIE_CARD_FIELDS}
   fragment CollectionFields on Collection {
@@ -164,14 +177,18 @@ export const SMART_COLLECTIONS = gql`
 `;
 
 export const TASTE_RECOMMENDATIONS = gql`
-  ${MOVIE_CARD_FIELDS}
+  ${SEARCH_MOVIE_FIELDS}
   query TasteRecommendations {
     tasteRecommendations {
       score
       reason
       sourceUsers
+      mode
+      viewerRating
+      ratingCount
+      ratingSource
       movie {
-        ...MovieCardFields
+        ...SearchMovieFields
       }
     }
   }
@@ -239,12 +256,6 @@ export const LOGIN = gql`
 export const LOGOUT = gql`
   mutation Logout {
     logout
-  }
-`;
-
-export const CLAIM_MOCK_USER_DATA = gql`
-  mutation ClaimMockUserData {
-    claimMockUserData
   }
 `;
 
@@ -324,4 +335,91 @@ export const UPDATE_MOVIE_PROGRESS = gql`
       ...UserMovieFields
     }
   }
+`;
+
+export const RECOMMENDATIONS = gql`
+  ${SEARCH_MOVIE_FIELDS}
+  query Recommendations {
+    recommendations {
+      movie { ...SearchMovieFields }
+      score
+      reason
+      sourceUsers
+      mode
+      viewerRating
+      ratingCount
+      ratingSource
+    }
+  }
+`;
+
+export const REVIEW_FIELDS = gql`
+  ${MOVIE_CARD_FIELDS}
+  fragment ReviewFields on Review {
+    id
+    author { id name }
+    movie { ...MovieCardFields }
+    rating
+    text
+    hasSpoilers
+    createdAt
+    updatedAt
+  }
+`;
+
+export const MOVIE_FEEDBACK = gql`
+  ${REVIEW_FIELDS}
+  query MovieFeedback($externalId: String!, $offset: Int) {
+    movieFeedback(externalId: $externalId, offset: $offset) {
+      averageRating
+      ratingCount
+      reviewCount
+      distribution { rating count }
+      reviews { ...ReviewFields }
+      hasMore
+      myReview { ...ReviewFields }
+      myRating
+    }
+  }
+`;
+
+export const PROFILE_FIELDS = gql`
+  ${REVIEW_FIELDS}
+  ${USER_MOVIE_FIELDS}
+  fragment ProfileFields on Profile {
+    id
+    name
+    bio
+    createdAt
+    stats { movieCount watchedCount ratedCount reviewCount collectionsCount }
+    favoriteGenres
+    recentRatings { ...UserMovieFields }
+    reviews { ...ReviewFields }
+  }
+`;
+
+export const MY_PROFILE = gql`
+  ${PROFILE_FIELDS}
+  query MyProfile { myProfile { ...ProfileFields } }
+`;
+
+export const USER_PROFILE = gql`
+  ${PROFILE_FIELDS}
+  query UserProfile($userId: ID!) { userProfile(userId: $userId) { ...ProfileFields } }
+`;
+
+export const UPDATE_PROFILE = gql`
+  ${PROFILE_FIELDS}
+  mutation UpdateProfile($input: ProfileInput!) { updateProfile(input: $input) { ...ProfileFields } }
+`;
+
+export const PUBLISH_REVIEW = gql`
+  ${REVIEW_FIELDS}
+  mutation PublishReview($externalId: String!, $input: ReviewInput!) {
+    publishReview(externalId: $externalId, input: $input) { ...ReviewFields }
+  }
+`;
+
+export const DELETE_REVIEW = gql`
+  mutation DeleteReview($id: ID!) { deleteReview(id: $id) }
 `;

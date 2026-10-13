@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { BookmarkCheck, FolderPlus, X } from "lucide-react";
 import type { FormEvent } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Collection } from "../../entities/collection/types";
 import { getMovieTitle, type MovieInput, type MovieSearchResult } from "../../entities/movie/types";
 import { ADD_MOVIE_TO_COLLECTION, COLLECTIONS, CREATE_COLLECTION, SAVED_MOVIES } from "../../shared/graphql/documents";
@@ -18,6 +18,9 @@ type CollectionsQuery = {
 };
 
 export function AddToCollectionModal({ movie, movieInput, onClose }: Props) {
+  const modalRef = useRef<HTMLElement>(null);
+  const closeRef = useRef(onClose);
+  const isOpen = Boolean(movie && movieInput);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const { data, loading, error } = useQuery<CollectionsQuery>(COLLECTIONS, {
@@ -33,6 +36,42 @@ export function AddToCollectionModal({ movie, movieInput, onClose }: Props) {
   const collections = data?.collections ?? [];
   const disabled = loading || addState.loading || !movieInput;
   const movieTitle = useMemo(() => (movie ? getMovieTitle(movie) : ""), [movie]);
+
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    modalRef.current?.querySelector<HTMLElement>("button")?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRef.current();
+      }
+      if (event.key !== "Tab") return;
+      const focusable = modalRef.current?.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), textarea:not(:disabled), a[href]");
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [isOpen]);
 
   if (!movie || !movieInput) {
     return null;
@@ -71,6 +110,7 @@ export function AddToCollectionModal({ movie, movieInput, onClose }: Props) {
   return (
     <div className={styles.backdrop} role="presentation" onMouseDown={onClose}>
       <section
+        ref={modalRef}
         className={styles.modal}
         role="dialog"
         aria-modal="true"

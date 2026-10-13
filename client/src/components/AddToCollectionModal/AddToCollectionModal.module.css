@@ -5,14 +5,15 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(29, 27, 28, 0.42);
+  background: rgba(20, 17, 19, 0.58);
+  backdrop-filter: blur(5px);
 }
 
 .modal {
   width: min(560px, 100%);
-  max-height: min(760px, calc(100vh - 48px));
+  max-height: min(760px, calc(100dvh - 48px));
   overflow: auto;
-  border-radius: 12px;
+  border-radius: 24px;
   background: var(--surface);
   box-shadow: var(--shadow);
 }
@@ -30,7 +31,7 @@
   margin: 0 0 4px;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .header h2 {
@@ -68,8 +69,7 @@
   gap: 3px;
 }
 
-.collectionButton small,
-.muted {
+.collectionButton small, .muted {
   color: var(--muted);
 }
 
@@ -94,5 +94,29 @@
   gap: 8px;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .backdrop {
+    padding: 12px;
+    align-items: end;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    border-radius: 24px 24px 16px 16px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .header {
+    padding: 20px 18px 16px;
+  }
+
+  .collectionList, .form {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
 }

@@ -12,6 +12,5 @@ export const config = {
   port: Number(process.env.PORT ?? 4000),
   clientUrl: process.env.CLIENT_URL ?? "http://localhost:5173",
   movieApiKey: process.env.MOVIE_API_KEY,
-  movieApiUrl: process.env.MOVIE_API_URL ?? "https://api.themoviedb.org/3",
-  mockUserEmail: "demo@movie.local"
+  movieApiUrl: process.env.MOVIE_API_URL ?? "https://api.themoviedb.org/3"
 };

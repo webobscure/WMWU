@@ -1,5 +1,5 @@
 import { useApolloClient, useMutation, useQuery } from "@apollo/client";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppLayout } from "../components/AppLayout/AppLayout";
 import type { CurrentUser } from "../entities/movie/types";
 import { AuthPage } from "../pages/AuthPage/AuthPage";
@@ -8,6 +8,8 @@ import { CollectionsPage } from "../pages/CollectionsPage/CollectionsPage";
 import { HomePage } from "../pages/HomePage/HomePage";
 import { LibraryPage } from "../pages/LibraryPage/LibraryPage";
 import { MoviePage } from "../pages/MoviePage/MoviePage";
+import { ProfilePage } from "../pages/ProfilePage/ProfilePage";
+import { RecommendationsPage } from "../pages/RecommendationsPage/RecommendationsPage";
 import { WatchlistPage } from "../pages/WatchlistPage/WatchlistPage";
 import { LOGOUT, ME } from "../shared/graphql/documents";
 
@@ -17,6 +19,7 @@ type MeData = {
 
 export function App() {
   const client = useApolloClient();
+  const { pathname } = useLocation();
   const { data, loading, refetch } = useQuery<MeData>(ME, {
     fetchPolicy: "network-only"
   });
@@ -39,6 +42,9 @@ export function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/movies/:movieId" element={<MoviePage />} />
+          <Route path="/recommendations" element={<RecommendationsPage />} />
+          <Route path="/profile" element={<ProfilePage key={pathname} currentUser={user} />} />
+          <Route path="/users/:userId" element={<ProfilePage key={pathname} currentUser={user} />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/watchlist" element={<WatchlistPage />} />
           <Route path="/collections" element={<CollectionsPage />} />

@@ -1,5 +1,14 @@
 export type MediaType = "movie" | "series";
 
+export type MovieTrailer = {
+  id: string;
+  name: string;
+  key: string;
+  language: string | null;
+  official: boolean;
+  type: "Trailer" | "Teaser";
+};
+
 export type MovieSearchResult = {
   id: string;
   externalId: string;
@@ -97,10 +106,14 @@ export type SmartCollection = {
 };
 
 export type TasteRecommendation = {
-  movie: PersistedMovie;
+  movie: MovieSearchResult;
   score: number;
   reason: string;
   sourceUsers: string[];
+  mode: "SIMILAR_TASTES" | "GENRES" | "COMMUNITY" | "PERSONAL_RATINGS";
+  viewerRating: number;
+  ratingCount: number;
+  ratingSource: "WMWU" | "TMDB";
 };
 
 export const watchStatusLabels: Record<WatchStatus, string> = {
@@ -136,3 +149,36 @@ export function toMovieInput(movie: MovieSearchResult | MovieDetails): MovieInpu
     actors: "actors" in movie ? movie.actors : undefined
   };
 }
+
+export type Review = {
+  id: string;
+  author: { id: string; name: string };
+  movie: PersistedMovie;
+  rating: number | null;
+  text: string;
+  hasSpoilers: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MovieFeedback = {
+  averageRating: number | null;
+  ratingCount: number;
+  reviewCount: number;
+  distribution: { rating: number; count: number }[];
+  reviews: Review[];
+  hasMore: boolean;
+  myReview: Review | null;
+  myRating: number | null;
+};
+
+export type Profile = {
+  id: string;
+  name: string;
+  bio: string | null;
+  createdAt: string;
+  stats: { movieCount: number; watchedCount: number; ratedCount: number; reviewCount: number; collectionsCount: number };
+  favoriteGenres: string[];
+  recentRatings: UserMovie[];
+  reviews: Review[];
+};

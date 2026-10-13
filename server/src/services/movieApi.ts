@@ -14,6 +14,8 @@ type TmdbSearchItem = {
   first_air_date?: string;
   poster_path?: string | null;
   vote_average?: number;
+  vote_count?: number;
+  adult?: boolean;
   overview?: string;
 };
 
@@ -46,6 +48,29 @@ type TmdbCreditsResponse = {
   cast?: TmdbSearchItem[];
 };
 
+type TmdbVideo = {
+  id?: string;
+  name?: string;
+  key?: string;
+  site?: string;
+  type?: string;
+  iso_639_1?: string;
+  official?: boolean;
+};
+
+type TmdbVideosResponse = {
+  results?: TmdbVideo[];
+};
+
+export type MovieTrailer = {
+  id: string;
+  name: string;
+  key: string;
+  language: string | null;
+  official: boolean;
+  type: "Trailer" | "Teaser";
+};
+
 export type MovieSearchResult = {
   id: string;
   externalId: string;
@@ -60,6 +85,7 @@ export type MovieSearchResult = {
   country?: string | null;
   genres: string[];
   actors: string[];
+  ratingVotes?: number;
 };
 
 export type MovieDetails = MovieSearchResult & {
@@ -242,13 +268,16 @@ function toSearchResult(item: TmdbSearchItem, mediaType: TmdbMediaType): MovieSe
     mediaType: toPublicMediaType(mediaType),
     country: null,
     genres: [],
-    actors: []
+    actors: [],
+    ratingVotes: item.vote_count ?? 0
   };
 }
 
 export class MovieApiService {
   private readonly baseUrl: string;
   private readonly apiKey?: string;
+  private readonly discoveryCache = new Map<string, { expiresAt: number; movies: MovieSearchResult[] }>();
+  private readonly discoveryRequests = new Map<string, Promise<MovieSearchResult[]>>();
 
   constructor() {
     this.baseUrl = config.movieApiUrl.replace(/\/$/, "");
@@ -427,6 +456,86 @@ export class MovieApiService {
     ].filter((group) => group.movies.length > 0);
   }
 
+  async getMovieTrailers(externalId: string): Promise<MovieTrailer[]> {
+    const { mediaType, id } = parseExternalId(externalId);
+    const responses = await Promise.allSettled(
+      ["ru-RU", "en-US"].map((language) =>
+        this.request<TmdbVideosResponse>(
+          `/${mediaType}/${id}/videos`,
+          { language },
+          AbortSignal.timeout(8000)
+        )
+      )
+    );
+
+    if (responses.every((response) => response.status === "rejected")) {
+      throw new GraphQLError("Не удалось загрузить трейлеры. Попробуйте ещё раз позже.", {
+        extensions: { code: "MOVIE_TRAILERS_ERROR" }
+      });
+    }
+
+    const byKey = new Map<string, MovieTrailer>();
+
+    for (const response of responses) {
+      if (response.status !== "fulfilled") continue;
+
+      for (const video of response.value.results ?? []) {
+        if (
+          video.site !== "YouTube" ||
+          (video.type !== "Trailer" && video.type !== "Teaser") ||
+          !video.key ||
+          !/^[a-zA-Z0-9_-]{11}$/.test(video.key) ||
+          byKey.has(video.key)
+        ) {
+          continue;
+        }
+
+        byKey.set(video.key, {
+          id: video.id || video.key,
+          key: video.key,
+          name: video.name?.trim() || (video.type === "Trailer" ? "Трейлер" : "Тизер"),
+          language: video.iso_639_1 || null,
+          official: video.official === true,
+          type: video.type
+        });
+      }
+    }
+
+    function priority(trailer: MovieTrailer) {
+      return (trailer.language === "ru" ? 8 : trailer.language === "en" ? 4 : 0) +
+        (trailer.official ? 2 : 0) + (trailer.type === "Trailer" ? 1 : 0);
+    }
+
+    return [...byKey.values()].sort((left, right) => priority(right) - priority(left));
+  }
+
+  getPopularMovies(): Promise<MovieSearchResult[]> {
+    return this.getDiscoveryMovies("/movie/popular");
+  }
+
+  async getRecommendedMovies(externalId: string): Promise<MovieSearchResult[]> {
+    const { mediaType, id } = parseExternalId(externalId);
+    return (await this.getDiscoveryMovies(`/${mediaType}/${id}/recommendations`))
+      .filter((movie) => movie.externalId !== externalId);
+  }
+
+  private getDiscoveryMovies(path: string): Promise<MovieSearchResult[]> {
+    const cached = this.discoveryCache.get(path);
+    if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.movies);
+    const inFlight = this.discoveryRequests.get(path);
+    if (inFlight) return inFlight;
+    const request = this.request<TmdbSearchResponse>(path, { language: "ru-RU", page: "1" }, AbortSignal.timeout(8000))
+      .then((data) => {
+        const movies = this.mapSearchItems((data.results ?? []).filter((item) => !item.adult))
+          .filter((movie) => (movie.rating ?? 0) >= 6 && (movie.ratingVotes ?? 0) >= 30);
+        if (this.discoveryCache.size >= 100) this.discoveryCache.delete(this.discoveryCache.keys().next().value!);
+        this.discoveryCache.set(path, { expiresAt: Date.now() + 5 * 60 * 1000, movies });
+        return movies;
+      }).finally(() => this.discoveryRequests.delete(path));
+    this.discoveryRequests.set(path, request);
+    return request;
+  }
+
   private mapSearchItems(items: TmdbSearchItem[], excludedExternalId?: string) {
     const byExternalId = new Map<string, MovieSearchResult>();
 
@@ -466,7 +575,7 @@ export class MovieApiService {
     ).sort((left, right) => (right.rating ?? 0) - (left.rating ?? 0));
   }
 
-  private async request<T>(path: string, params: Record<string, string>): Promise<T> {
+  private async request<T>(path: string, params: Record<string, string>, signal?: AbortSignal): Promise<T> {
     if (!this.apiKey) {
       throw new GraphQLError("MOVIE_API_KEY не задан. Добавьте ключ TMDB в .env.", {
         extensions: { code: "MOVIE_API_KEY_MISSING" }
@@ -480,7 +589,7 @@ export class MovieApiService {
       url.searchParams.set(key, value);
     }
 
-    const response = await fetch(url);
+    const response = await fetch(url, { signal });
 
     if (!response.ok) {
       throw new GraphQLError("Не удалось получить данные из внешнего API фильмов.", {

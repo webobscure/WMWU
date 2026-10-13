@@ -1,0 +1,269 @@
+.section {
+  margin-top: 48px;
+  min-width: 0;
+}
+
+.heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.heading > div > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: .13em;
+  font-weight: 650;
+}
+
+.heading h2 {
+  margin: 8px 0 0;
+  font-size: 28px;
+  letter-spacing: -.04em;
+  font-weight: 600;
+}
+
+.heading > small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 40px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.score {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.score > svg {
+  color: var(--accent);
+}
+
+.score strong {
+  font-family: var(--heading-font);
+  font-size: 56px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.score strong small {
+  font-family: inherit;
+  font-size: 22px;
+  color: var(--muted);
+}
+
+.score > span {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.score p {
+  max-width: 340px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.distribution {
+  display: grid;
+  gap: 5px;
+}
+
+.distribution > div {
+  display: grid;
+  grid-template-columns: 18px minmax(0,1fr) 28px;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.distribution small {
+  text-align: right;
+  font-size: 10px;
+}
+
+.track {
+  display: block;
+  height: 7px;
+  background: var(--surface-soft);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.track > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  margin: 22px 0;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface-translucent);
+}
+
+.formHeader {
+  grid-column: 1/-1;
+}
+
+.formHeader h3 {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.formHeader > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ratingLabel, .textLabel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.textLabel textarea {
+  min-height: 130px;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.formMeta {
+  grid-column: 1/-1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.checkbox input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.hint {
+  grid-column: 1/-1;
+  margin: -6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.formActions {
+  grid-column: 1/-1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.error, .success {
+  grid-column: 1/-1;
+  padding: 12px;
+  margin: 0;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.error {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.success {
+  background: var(--teal-soft);
+  color: var(--teal-text);
+}
+
+.list {
+  display: grid;
+  gap: 14px;
+}
+
+.state {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 28px;
+  border: 1px dashed var(--border);
+  border-radius: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.state p {
+  margin: 0;
+}
+
+.more {
+  display: flex;
+  margin: 20px auto 0;
+}
+
+@media (max-width:760px) {
+  .heading h2 {
+    font-size: 25px;
+  }
+
+  .summary {
+    padding: 22px;
+    gap: 24px;
+    grid-template-columns: minmax(0,1fr);
+  }
+
+  .form {
+    grid-template-columns: minmax(0,1fr);
+    padding: 20px;
+  }
+
+  .textLabel textarea {
+    font-size: 16px;
+  }
+
+  .formActions {
+    flex-direction: column;
+  }
+
+  .section {
+    margin-top: 36px;
+  }
+
+}

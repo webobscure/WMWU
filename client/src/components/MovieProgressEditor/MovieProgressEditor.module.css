@@ -1,6 +1,6 @@
 .form {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) 112px auto;
+  grid-template-columns: minmax(0, 1fr) 76px;
   gap: 10px;
   align-items: end;
   padding: 14px;
@@ -14,12 +14,10 @@
   gap: 7px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 600;
 }
 
-.form select,
-.form input,
-.form textarea {
+.form select, .form input, .form textarea {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -28,9 +26,8 @@
   outline: none;
 }
 
-.form select,
-.form input {
-  height: 42px;
+.form select, .form input {
+  height: 46px;
   padding: 0 10px;
 }
 
@@ -48,4 +45,27 @@
   .form {
     grid-template-columns: 1fr;
   }
+
 }
+
+.form > button {
+  grid-column: 1 / -1;
+}
+
+.form select:focus, .form input:focus, .form textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+@media (max-width: 760px) {
+  .form {
+    grid-template-columns: minmax(0, 1fr) 84px;
+  }
+
+  .form input, .form select, .form textarea {
+    font-size: 16px;
+  }
+
+}
+
+.error { grid-column: 1 / -1; margin: 0; padding: 10px; border-radius: 10px; background: var(--danger-bg); color: var(--danger-text); font-size: 12px; }

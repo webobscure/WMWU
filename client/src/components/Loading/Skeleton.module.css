@@ -5,12 +5,9 @@
   background: var(--surface);
 }
 
-.poster,
-.lineWide,
-.line,
-.actions div {
+.poster, .lineWide, .line, .actions div {
   border-radius: var(--radius);
-  background: linear-gradient(90deg, #eee7df 25%, #f7f1eb 40%, #eee7df 65%);
+  background: linear-gradient(90deg, var(--surface-soft) 25%, var(--surface-muted) 40%, var(--surface-soft) 65%);
   background-size: 240% 100%;
   animation: shimmer 1.2s ease-in-out infinite;
 }
@@ -49,4 +46,5 @@
   to {
     background-position: -100% 0;
   }
+
 }

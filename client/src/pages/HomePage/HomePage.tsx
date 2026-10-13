@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@apollo/client";
-import { AlertCircle, BookmarkPlus, CheckCircle2, Search, Sparkles, UsersRound } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUpRight, CheckCircle2, Film, Search, Sparkles, UsersRound } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { AddToCollectionModal } from "../../components/AddToCollectionModal/AddToCollectionModal";
@@ -10,6 +11,8 @@ import type { MovieFilters, MovieSearchResult, MovieSort, TasteRecommendation } 
 import { toMovieInput } from "../../entities/movie/types";
 import { useMovieSearch } from "../../features/movieSearch/useMovieSearch";
 import {
+  MY_PROFILE,
+  RECOMMENDATIONS,
   ADD_MOVIE_TO_LIBRARY,
   ADD_MOVIE_TO_WATCHLIST,
   SAVED_MOVIES,
@@ -19,12 +22,10 @@ import {
 import styles from "./HomePage.module.css";
 
 const recommendedCollections = [
-  "Фильмы на вечер",
-  "Лучшие триллеры",
-  "Посмотреть позже",
-  "Русское кино",
-  "Фильмы 90-х",
-  "Сериалы для выходных"
+  { label: "Для большого вечера", title: "Интерстеллар" },
+  { label: "Держит в напряжении", title: "Остров проклятых" },
+  { label: "Ещё одну серию", title: "Во все тяжкие" },
+  { label: "Пересмотреть классику", title: "Матрица" }
 ];
 
 type TasteRecommendationsData = {
@@ -41,12 +42,12 @@ export function HomePage() {
   const [areSuggestionsOpen, setAreSuggestionsOpen] = useState(false);
   const [searchMovies, { data, loading, error, called }] = useMovieSearch();
   const [loadSuggestions, suggestionsState] = useMovieSearch();
-  const { data: tasteData } = useQuery<TasteRecommendationsData>(TASTE_RECOMMENDATIONS);
+  const { data: tasteData, loading: tasteLoading, error: tasteError } = useQuery<TasteRecommendationsData>(TASTE_RECOMMENDATIONS, { fetchPolicy: "cache-and-network" });
   const [addMovieToWatchlist] = useMutation(ADD_MOVIE_TO_WATCHLIST, {
-    refetchQueries: [WATCHLIST, SAVED_MOVIES, TASTE_RECOMMENDATIONS]
+    refetchQueries: [WATCHLIST, SAVED_MOVIES, TASTE_RECOMMENDATIONS, MY_PROFILE, RECOMMENDATIONS]
   });
   const [addMovieToLibrary] = useMutation(ADD_MOVIE_TO_LIBRARY, {
-    refetchQueries: [SAVED_MOVIES, TASTE_RECOMMENDATIONS]
+    refetchQueries: [SAVED_MOVIES, TASTE_RECOMMENDATIONS, MY_PROFILE, RECOMMENDATIONS]
   });
   const movies = data?.searchMovies ?? [];
   const tasteRecommendations = tasteData?.tasteRecommendations ?? [];
@@ -76,6 +77,18 @@ export function HomePage() {
 
     return () => window.clearTimeout(timeoutId);
   }, [filters, loadSuggestions, query]);
+
+  useEffect(() => {
+    if (!watchlistMessage) return;
+    const timeout = window.setTimeout(() => setWatchlistMessage(null), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [watchlistMessage]);
+
+  function searchByTitle(title: string) {
+    setQuery(title);
+    setAreSuggestionsOpen(false);
+    searchMovies({ variables: { query: title, filters, sort } });
+  }
 
   const modalMovieInput = useMemo(() => (selectedMovie ? toMovieInput(selectedMovie) : null), [selectedMovie]);
 
@@ -129,16 +142,20 @@ export function HomePage() {
         <div className="container">
           <div className={styles.heroGrid}>
             <div className={styles.heroCopy}>
-              <h1>Находите фильмы и собирайте подборки</h1>
+              <span className={styles.eyebrow}><Film size={15} aria-hidden /> ВАША ЛИЧНАЯ КИНОТЕКА</span>
+              <h1>Хорошее кино.<br /><em>Ваш выбор.</em></h1>
               <p>
-                Поиск работает на русском и английском языке, а найденные фильмы можно сразу сохранить в
-                тематические коллекции для просмотра позже.
+                Находите фильмы и сериалы, собирайте любимое в коллекции
+                и выбирайте, что посмотреть сегодня.
               </p>
 
               <form className={styles.searchForm} onSubmit={handleSubmit}>
                 <div className={styles.searchInputWrap}>
                   <Search size={20} aria-hidden />
                   <input
+                    type="search"
+                    autoComplete="off"
+                    onKeyDown={(event) => { if (event.key === "Escape") setAreSuggestionsOpen(false); }}
                     value={query}
                     onChange={(event) => {
                       setQuery(event.target.value);
@@ -160,9 +177,12 @@ export function HomePage() {
                   ) : null}
                 </div>
                 <button className="buttonPrimary" type="submit" disabled={loading}>
-                  Искать
+                  {loading ? "Ищем…" : "Найти"}
+                  <ArrowUpRight size={18} aria-hidden />
                 </button>
               </form>
+
+              <div className={styles.searchHint}><span>По названию · На русском и английском</span><ArrowDown size={14} aria-hidden /></div>
 
               {emptyQuery ? (
                 <p className={styles.inlineError}>
@@ -172,15 +192,19 @@ export function HomePage() {
               ) : null}
             </div>
 
-            <aside className={styles.recommendations} aria-label="Рекомендованные коллекции">
+            <aside className={styles.recommendations} aria-label="Идеи для просмотра">
               <div className={styles.recommendationHeader}>
                 <Sparkles size={18} aria-hidden />
-                Популярные идеи
+                НАСТРОЕНИЕ ВЕЧЕРА
               </div>
+              <h2>С чего начнём?</h2>
+              <p>Немного вдохновения для следующего просмотра.</p>
               <div className={styles.collectionChips}>
-                {recommendedCollections.map((collection) => (
-                  <button key={collection} type="button" onClick={() => setQuery(collection.replace("Фильмы ", ""))}>
-                    {collection}
+                {recommendedCollections.map((collection, index) => (
+                  <button key={collection.title} type="button" onClick={() => searchByTitle(collection.title)}>
+                    <span className={styles.ideaNumber}>0{index + 1}</span>
+                    <span><strong>{collection.label}</strong><small>{collection.title}</small></span>
+                    <ArrowUpRight size={18} aria-hidden />
                   </button>
                 ))}
               </div>
@@ -190,49 +214,34 @@ export function HomePage() {
       </section>
 
       <section className="container">
-        {tasteRecommendations.length > 0 ? (
-          <section className={styles.tasteSection} aria-label="Рекомендации по похожему вкусу">
-            <div className={styles.tasteHeader}>
-              <div>
-                <span>
-                  <UsersRound size={18} aria-hidden />
-                  Похожие вкусы
-                </span>
-                <h2>Понравилось пользователям со схожим вкусом</h2>
-              </div>
-            </div>
-
-            <div className={styles.tasteGrid}>
-              {tasteRecommendations.map((recommendation) => (
-                <article className={styles.tasteCard} key={recommendation.movie.id}>
-                  <MovieCard
-                    movie={recommendation.movie}
-                    onAdd={setSelectedMovie}
-                    onLibrary={handleLibrary}
-                    onWatchlist={handleWatchlist}
-                  />
-                  <div className={styles.tasteReason}>
-                    <strong>{recommendation.reason}</strong>
-                    {recommendation.sourceUsers.length > 0 ? (
-                      <small>{recommendation.sourceUsers.join(", ")}</small>
-                    ) : null}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        ) : null}
+        <section className={styles.tasteSection} aria-label="Рекомендации для вас">
+          <div className={styles.tasteHeader}>
+            <div><span><UsersRound size={17} aria-hidden /> Ваш вкус и оценки зрителей</span><h2>Рекомендуем посмотреть</h2></div>
+            <Link className="buttonSecondary" to="/recommendations">Все рекомендации <ArrowUpRight size={16} aria-hidden /></Link>
+          </div>
+          {tasteLoading && !tasteData ? <p className={styles.recommendationState} role="status">Подбираем фильмы…</p> : null}
+          {tasteError ? <p className={styles.recommendationState}>Не удалось загрузить рекомендации. Попробуйте открыть раздел «Для вас» ещё раз.</p> : null}
+          {!tasteLoading && !tasteError && !tasteRecommendations.length ? <div className={styles.recommendationState}><p>Оцените фильмы в библиотеке, чтобы мы узнали ваш вкус. Здесь появятся новые истории на основе оценок зрителей.</p><Link to="/library">Перейти в библиотеку <ArrowUpRight size={15} aria-hidden /></Link></div> : null}
+          <div className={styles.tasteGrid}>
+            {tasteRecommendations.slice(0, 4).map((recommendation) => (
+              <article className={styles.tasteCard} key={recommendation.movie.id}>
+                <MovieCard movie={recommendation.movie} onAdd={setSelectedMovie} onLibrary={handleLibrary} onWatchlist={handleWatchlist} />
+                <div className={styles.tasteReason}><strong>{recommendation.reason}</strong><small>Зрители {recommendation.ratingSource}: {recommendation.viewerRating.toFixed(1)}/10 · {recommendation.ratingCount} оценок</small></div>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <MovieFiltersBar filters={filters} sort={sort} onFiltersChange={setFilters} onSortChange={setSort} />
 
         <div className={styles.resultsHeader}>
           <div>
             <h2>Результаты поиска</h2>
-            <p>Карточки содержат постер, год, рейтинг и быстрые действия.</p>
+            <p>{called ? `${movies.length} найдено · Сохраните то, что хочется посмотреть` : "Ваша следующая любимая история начинается здесь"}</p>
           </div>
-          <button className="buttonSecondary" type="button" onClick={() => setQuery("Матрица")}>
-            <BookmarkPlus size={18} aria-hidden />
-            Пример запроса
+          <button className="buttonSecondary" type="button" onClick={() => searchByTitle("Матрица")}>
+            <Sparkles size={16} aria-hidden />
+            Попробовать «Матрицу»
           </button>
         </div>
 

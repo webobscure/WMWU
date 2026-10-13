@@ -55,6 +55,7 @@ export function LibraryPage() {
               key={filter.value}
               className={filter.value === status ? styles.activeFilter : styles.filter}
               type="button"
+              aria-pressed={filter.value === status}
               onClick={() => setStatus(filter.value)}
             >
               {filter.label}

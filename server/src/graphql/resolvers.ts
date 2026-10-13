@@ -1,9 +1,10 @@
-import { Prisma, WatchStatus, type Collection, type Movie, type User, type UserMovie } from "@prisma/client";
+import { Prisma, WatchStatus, type Collection, type Movie, type User } from "@prisma/client";
 import { GraphQLError } from "graphql";
 import { createSession, deleteSessionToken, hashPassword, normalizeEmail, validatePassword, verifyPassword } from "../auth.js";
-import { config } from "../config.js";
 import { prisma } from "../db/prisma.js";
 import type { GraphQLContext as Context } from "./context.js";
+import { dateToString, mapMovie, mapUser, mapUserMovie } from "./mappers.js";
+import { getRatingRecommendations, socialQueries, socialMutations } from "./social.js";
 import {
   movieApiService,
   type MovieFiltersInput,
@@ -32,11 +33,6 @@ type MovieInput = {
   actors?: string[] | null;
 };
 
-type UserMovieWithRelations = UserMovie & {
-  user: User;
-  movie: Movie;
-};
-
 type UpdateMovieProgressInput = {
   status?: WatchStatus | null;
   personalRating?: number | null;
@@ -46,31 +42,6 @@ type UpdateMovieProgressInput = {
 
 const WATCHLIST_TITLE = "Хочу посмотреть";
 const WATCHLIST_DESCRIPTION = "Фильмы и сериалы, которые хочется посмотреть позже.";
-
-function dateToString(value: Date) {
-  return value.toISOString();
-}
-
-function asStringArray(value: Prisma.JsonValue | null): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-}
-
-function mapMovie(movie: Movie) {
-  return {
-    ...movie,
-    genres: asStringArray(movie.genres),
-    actors: asStringArray(movie.actors),
-    createdAt: dateToString(movie.createdAt)
-  };
-}
-
-function mapUser(user: User) {
-  return {
-    ...user,
-    createdAt: dateToString(user.createdAt),
-    updatedAt: dateToString(user.updatedAt)
-  };
-}
 
 function mapCollection(collection: CollectionWithMovies, filters?: MovieFiltersInput | null, sort?: MovieSortInput | null) {
   const movies = filterAndSortMovieEntries(
@@ -86,17 +57,6 @@ function mapCollection(collection: CollectionWithMovies, filters?: MovieFiltersI
     movieCount: movies.length,
     createdAt: dateToString(collection.createdAt),
     updatedAt: dateToString(collection.updatedAt)
-  };
-}
-
-function mapUserMovie(userMovie: UserMovieWithRelations) {
-  return {
-    ...userMovie,
-    user: mapUser(userMovie.user),
-    movie: mapMovie(userMovie.movie),
-    watchedAt: userMovie.watchedAt ? dateToString(userMovie.watchedAt) : null,
-    createdAt: dateToString(userMovie.createdAt),
-    updatedAt: dateToString(userMovie.updatedAt)
   };
 }
 
@@ -185,32 +145,6 @@ function mapSmartCollection(id: string, title: string, description: string, entr
     movies,
     movieCount: movies.length
   };
-}
-
-function getTasteWeight(entry: Pick<UserMovie, "personalRating" | "status">) {
-  if (entry.personalRating !== null && entry.personalRating !== undefined) {
-    return entry.personalRating >= 7 ? entry.personalRating / 10 : 0;
-  }
-
-  if (entry.status === WatchStatus.REWATCH) {
-    return 0.78;
-  }
-
-  if (entry.status === WatchStatus.WATCHED) {
-    return 0.62;
-  }
-
-  return 0;
-}
-
-function getRecommendationReason(sourceUsers: Set<string>) {
-  const users = Array.from(sourceUsers);
-
-  if (users.length === 1) {
-    return `${users[0]} оценил(а) фильм близко к вашему вкусу.`;
-  }
-
-  return `Понравилось ${users.length} пользователям со схожим вкусом.`;
 }
 
 const collectionInclude = {
@@ -448,204 +382,24 @@ async function getSavedMovieEntries(userId: string) {
   }));
 }
 
-async function claimMockUserData(userId: string) {
-  const mockUser = await prisma.user.findUnique({
-    where: { email: config.mockUserEmail }
-  });
-
-  if (!mockUser || mockUser.id === userId) {
-    return false;
-  }
-
-  return prisma.$transaction(async (tx) => {
-    const [mockCollections, mockUserMovies] = await Promise.all([
-      tx.collection.findMany({
-        where: { userId: mockUser.id },
-        include: { collectionMovies: true }
-      }),
-      tx.userMovie.findMany({ where: { userId: mockUser.id } })
-    ]);
-    let imported = false;
-
-    for (const sourceCollection of mockCollections) {
-      let targetCollection = await tx.collection.findFirst({
-        where: { userId, title: sourceCollection.title },
-        include: { collectionMovies: true }
-      });
-
-      if (!targetCollection) {
-        targetCollection = await tx.collection.create({
-          data: {
-            title: sourceCollection.title,
-            description: sourceCollection.description,
-            tags: sourceCollection.tags,
-            userId,
-            createdAt: sourceCollection.createdAt,
-            updatedAt: sourceCollection.updatedAt
-          },
-          include: { collectionMovies: true }
-        });
-        imported = true;
-      }
-
-      const targetMovieIds = new Set(targetCollection.collectionMovies.map(({ movieId }) => movieId));
-
-      for (const item of sourceCollection.collectionMovies) {
-        if (targetMovieIds.has(item.movieId)) {
-          continue;
-        }
-
-        await tx.collectionMovie.create({
-          data: {
-            collectionId: targetCollection.id,
-            movieId: item.movieId,
-            createdAt: item.createdAt
-          }
-        });
-        imported = true;
-      }
-    }
-
-    for (const entry of mockUserMovies) {
-      const existingEntry = await tx.userMovie.findUnique({
-        where: {
-          userId_movieId: {
-            userId,
-            movieId: entry.movieId
-          }
-        }
-      });
-
-      if (!existingEntry) {
-        await tx.userMovie.create({
-          data: {
-            userId,
-            movieId: entry.movieId,
-            status: entry.status,
-            personalRating: entry.personalRating,
-            note: entry.note,
-            watchedAt: entry.watchedAt,
-            createdAt: entry.createdAt,
-            updatedAt: entry.updatedAt
-          }
-        });
-        imported = true;
-      }
-    }
-
-    return imported;
-  });
-}
-
 async function getTasteRecommendations(userId: string) {
   await backfillUserMoviesFromCollections(userId);
-
-  const currentEntries = await prisma.userMovie.findMany({
-    where: { userId },
-    include: { movie: true }
-  });
-  const currentMovieIds = new Set(currentEntries.map((entry) => entry.movieId));
-  const currentLikedEntries = currentEntries
-    .map((entry) => ({ entry, weight: getTasteWeight(entry) }))
-    .filter(({ weight }) => weight > 0);
-
-  if (currentLikedEntries.length === 0) {
-    return [];
-  }
-
-  const currentLikedIds = new Set(currentLikedEntries.map(({ entry }) => entry.movieId));
-  const currentWeightByMovieId = new Map(currentLikedEntries.map(({ entry, weight }) => [entry.movieId, weight]));
-  const overlappingEntries = await prisma.userMovie.findMany({
-    where: {
-      userId: { not: userId },
-      movieId: { in: Array.from(currentLikedIds) }
-    },
-    include: { user: true }
-  });
-  const similarityByUserId = new Map<string, { score: number; userName: string }>();
-
-  for (const entry of overlappingEntries) {
-    const otherWeight = getTasteWeight(entry);
-
-    if (otherWeight <= 0) {
-      continue;
-    }
-
-    const currentWeight = currentWeightByMovieId.get(entry.movieId) ?? 0;
-    const existing = similarityByUserId.get(entry.userId) ?? { score: 0, userName: entry.user.name };
-    existing.score += currentWeight * otherWeight;
-    similarityByUserId.set(entry.userId, existing);
-  }
-
-  const similarUserIds = Array.from(similarityByUserId.entries())
-    .filter(([, similarity]) => similarity.score > 0)
-    .sort(([, left], [, right]) => right.score - left.score)
-    .slice(0, 12)
-    .map(([similarUserId]) => similarUserId);
-
-  if (similarUserIds.length === 0) {
-    return [];
-  }
-
-  const candidateEntries = await prisma.userMovie.findMany({
-    where: {
-      userId: { in: similarUserIds },
-      movieId: { notIn: Array.from(currentMovieIds) }
-    },
-    include: {
-      user: true,
-      movie: true
-    }
-  });
-  const candidateByMovieId = new Map<
-    string,
-    {
-      movie: Movie;
-      score: number;
-      sourceUsers: Set<string>;
-    }
-  >();
-
-  for (const entry of candidateEntries) {
-    const tasteWeight = getTasteWeight(entry);
-
-    if (tasteWeight <= 0) {
-      continue;
-    }
-
-    const similarity = similarityByUserId.get(entry.userId)?.score ?? 0;
-    const existing = candidateByMovieId.get(entry.movieId) ?? {
-      movie: entry.movie,
-      score: 0,
-      sourceUsers: new Set<string>()
-    };
-    existing.score += similarity * tasteWeight;
-    existing.sourceUsers.add(entry.user.name);
-    candidateByMovieId.set(entry.movieId, existing);
-  }
-
-  return Array.from(candidateByMovieId.values())
-    .sort((left, right) => right.score - left.score)
-    .slice(0, 12)
-    .map((candidate) => ({
-      movie: mapMovie(candidate.movie),
-      score: Number(candidate.score.toFixed(3)),
-      reason: getRecommendationReason(candidate.sourceUsers),
-      sourceUsers: Array.from(candidate.sourceUsers).slice(0, 3)
-    }));
+  return getRatingRecommendations(userId);
 }
 
 export const resolvers = {
   Query: {
+    ...socialQueries,
     me: async (_: unknown, __: unknown, context: Context) => {
       const user = await context.getCurrentUser();
-      return user ? mapUser(user as User) : null;
+      return user ? mapUser(user) : null;
     },
     searchMovies: async (
       _: unknown,
       { query, filters, sort }: { query: string; filters?: MovieFiltersInput | null; sort?: MovieSortInput | null }
     ) => movieApiService.searchMovies(query, filters, sort),
     movieDetails: async (_: unknown, { id }: { id: string }) => movieApiService.getMovieDetails(id),
+    movieTrailers: async (_: unknown, { id }: { id: string }) => movieApiService.getMovieTrailers(id),
     relatedMovies: async (_: unknown, { id }: { id: string }) => movieApiService.getRelatedMovieGroups(id),
     collections: async (_: unknown, __: unknown, context: Context) => {
       const userId = await context.getUserId();
@@ -713,7 +467,7 @@ export const resolvers = {
 
       return sortedMovieIds
         .map((movieId) => savedMovieByMovieId.get(movieId))
-        .filter((entry): entry is UserMovieWithRelations => Boolean(entry))
+        .filter((entry): entry is (typeof savedMovies)[number] => Boolean(entry))
         .map(mapUserMovie);
     },
     smartCollections: async (_: unknown, __: unknown, context: Context) => {
@@ -809,6 +563,7 @@ export const resolvers = {
     }
   },
   Mutation: {
+    ...socialMutations,
     register: async (
       _: unknown,
       { input }: { input: { name: string; email: string; password: string } },
@@ -862,10 +617,6 @@ export const resolvers = {
       await deleteSessionToken(context.sessionToken);
       context.clearSessionCookie();
       return true;
-    },
-    claimMockUserData: async (_: unknown, __: unknown, context: Context) => {
-      const userId = await context.getUserId();
-      return claimMockUserData(userId);
     },
     createCollection: async (
       _: unknown,
